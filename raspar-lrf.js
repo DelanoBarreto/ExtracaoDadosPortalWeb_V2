@@ -209,4 +209,4 @@ async function rasparLRF() {
     }
 }
 
-iniciar();
+rasparLRF();
