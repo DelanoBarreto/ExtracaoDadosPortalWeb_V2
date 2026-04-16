@@ -182,11 +182,19 @@ function App() {
                   
                   <div className="grid grid-cols-2 gap-6">
                     <div className="bg-slate-50 p-4 rounded-2xl">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ano / Competência</span>
-                      <p className="text-lg font-black text-slate-800 mt-1">{selectedItem.competencia || selectedItem.ano || 'N/A'}</p>
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        {activeModule === 'noticias' ? 'Status / Visualizações' : 'Ano / Competência'}
+                      </span>
+                      {activeModule === 'noticias' ? (
+                         <p className="text-lg font-black text-slate-800 mt-1">{selectedItem.acessos || 0} visitas</p>
+                      ) : (
+                         <p className="text-lg font-black text-slate-800 mt-1">{selectedItem.competencia || selectedItem.ano || 'N/A'}</p>
+                      )}
                     </div>
                     <div className="bg-slate-50 p-4 rounded-2xl">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Data Publicação</span>
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        {activeModule === 'noticias' ? 'Data Publicação' : 'Data Base'}
+                      </span>
                       {selectedItem.data_publicacao ? (
                         <p className="text-lg font-black text-indigo-600 mt-1">
                           {new Date(selectedItem.data_publicacao).toLocaleDateString('pt-BR')}
@@ -195,15 +203,18 @@ function App() {
                     </div>
                   </div>
 
-                  {activeModule === 'noticias' && (
+                  {activeModule === 'noticias' ? (
                     <div className="grid grid-cols-2 gap-6">
-                      <div className="bg-slate-50 p-4 rounded-2xl">
+                      <div className="bg-slate-50 p-4 rounded-2xl col-span-2">
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Autor</span>
                         <p className="text-sm font-bold text-slate-700 mt-1">{selectedItem.autor || 'Governo'}</p>
                       </div>
-                      <div className="bg-slate-50 p-4 rounded-2xl">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Visualizações</span>
-                        <p className="text-sm font-bold text-slate-700 mt-1">{selectedItem.acessos || 0}</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="bg-slate-50 p-4 rounded-2xl col-span-2">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Identificador Interno</span>
+                        <p className="text-sm font-bold text-slate-700 mt-1 font-mono">{selectedItem.id || 'N/A'}</p>
                       </div>
                     </div>
                   )}

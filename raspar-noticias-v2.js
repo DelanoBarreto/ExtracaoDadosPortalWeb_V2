@@ -69,7 +69,7 @@ async function extrairDetalhesNoticia(url) {
 }
 
 async function rasparNoticiasV2() {
-  console.log('🚀 Iniciando Motor de Raspagem v2 (Refinado)...');
+  console.log('🚀 Iniciando raspagem de NOTICIAS (Motor v2)...');
 
   const { data: municipio } = await supabase
     .from('tab_municipios')

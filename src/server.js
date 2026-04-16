@@ -59,33 +59,53 @@ app.get('/api/lrf', async (req, res) => {
 // Executar Scraper
 app.post('/api/scrape', (req, res) => {
     const modulo = req.body.modulo || 'noticias';
-    let targetScript = '../raspar-noticias-v2.js';
-    
-    if (modulo === 'lrf' || modulo === 'atos') {
-        targetScript = '../raspar-lrf.js';
-    }
 
+    // Mapeia explicitamente o módulo para o script correto
+    const SCRIPT_MAP = {
+        'noticias': '../raspar-noticias-v2.js',
+        'lrf':      '../raspar-lrf.js',
+        'atos':     '../raspar-lrf.js',
+    };
+    const targetScript = SCRIPT_MAP[modulo] || '../raspar-noticias-v2.js';
     const scriptPath = path.join(__dirname, targetScript);
-    fs.writeFileSync(logFile, `🚀 [${new Date().toLocaleTimeString()}] Iniciando raspagem do módulo [${modulo}]...\n`);
-    
-    const process = exec(`node ${scriptPath}`);
-    process.stdout.on('data', (data) => fs.appendFileSync(logFile, data));
-    process.stderr.on('data', (data) => fs.appendFileSync(logFile, `❌ ERRO: ${data}`));
-    process.on('close', (code) => fs.appendFileSync(logFile, `\n🏁 [${new Date().toLocaleTimeString()}] Processo finalizado com código ${code}\n`));
 
-    res.json({ message: `Raspagem de ${modulo} iniciada` });
+    const logMsg = `🚀 [${new Date().toLocaleTimeString()}] Módulo: [${modulo.toUpperCase()}] → Script: ${path.basename(scriptPath)}\n`;
+    console.log(logMsg.trim());
+    fs.writeFileSync(logFile, logMsg);
+
+    // IMPORTANTE: renomeado para 'childProcess' para não sobrescrever o global process do Node.js
+    const childProcess = exec(`node "${scriptPath}"`);
+    childProcess.stdout.on('data', (data) => fs.appendFileSync(logFile, data));
+    childProcess.stderr.on('data', (data) => fs.appendFileSync(logFile, `❌ ERRO: ${data}`));
+    childProcess.on('close', (code) => fs.appendFileSync(logFile, `\n🏁 [${new Date().toLocaleTimeString()}] Processo finalizado com código ${code}\n`));
+
+    res.json({ message: `Raspagem de ${modulo} iniciada`, script: path.basename(scriptPath) });
 });
 
-// Resetar banco
+// Resetar TUDO
 app.delete('/api/clear-data', async (req, res) => {
     try {
         await supabase.from('tab_noticias').delete().neq('id', '00000000-0000-0000-0000-000000000000');
         await supabase.from('tab_lrf').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-        
-        fs.writeFileSync(logFile, `🗑️ [${new Date().toLocaleTimeString()}] Banco de dados resetado.\n`);
-        res.json({ message: 'Banco resetado com sucesso' });
+        fs.writeFileSync(logFile, `🗑️ [${new Date().toLocaleTimeString()}] Banco completo zerado.\n`);
+        res.json({ message: 'Banco completo zerado com sucesso' });
     } catch (err) {
         res.status(500).json(err);
+    }
+});
+
+// Resetar SOMENTE tab_lrf
+app.delete('/api/clear-lrf', async (req, res) => {
+    try {
+        const { error } = await supabase.from('tab_lrf').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        if (error) throw error;
+        const { count } = await supabase.from('tab_lrf').select('*', { count: 'exact', head: true });
+        console.log(`🗑️ tab_lrf zerada. Registros restantes: ${count}`);
+        fs.writeFileSync(logFile, `🗑️ [${new Date().toLocaleTimeString()}] Tabela LRF zerada. Restam: ${count}\n`);
+        res.json({ message: 'Tabela LRF zerada com sucesso', restantes: count });
+    } catch (err) {
+        console.error('Erro ao zerar LRF:', err);
+        res.status(500).json({ error: err.message });
     }
 });
 

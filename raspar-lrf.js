@@ -46,12 +46,22 @@ async function extrairDetalhesLRF(pageUrl) {
 
         // Metadados via texto da página
         const bodyText = $('body').text();
-        const dataMatch = bodyText.match(/DATA:\s*([\d\/]+)/);
-        const competenciaMatch = bodyText.match(/COMPETÊNCIA:\s*([^\n\r]+)/i)
-                              || bodyText.match(/EXERCÍCIO:\s*([^\n\r]+)/i);
+        let dataOriginal = null;
+        let competencia = null;
 
-        const dataOriginal   = dataMatch?.[1]?.trim();
-        const competencia    = competenciaMatch?.[1]?.trim().split('\n')[0].trim() || null;
+        // Extraindo metadados verificando blocos de texto
+        $('div, p, span, li, strong').parent().each((i, el) => {
+            const txt = $(el).text().replace(/\s+/g, ' ').trim();
+            
+            const dataMatch = txt.match(/Data:\s*([\d\/]+)/i);
+            if (dataMatch && !dataOriginal) dataOriginal = dataMatch[1];
+
+            const compMatch = txt.match(/(?:Compet[eê]ncia|Exerc[ií]cio|Refer[eê]ncia|Ano):\s*([0-9a-zA-ZáéíóúÁÉÍÓÚçÇ\/\s\-]+)/i);
+            if (compMatch && !competencia) {
+               const c = compMatch[1].trim();
+               if (c && c.toLowerCase() !== 'aguardando') competencia = c;
+            }
+        });
 
         // Ano extraído da competência ou data
         let ano = null;
@@ -114,8 +124,9 @@ async function iniciar() {
                 if (id) idsSet.add(id);
             });
 
-            const ids = Array.from(idsSet);
-            console.log(`   🔎 Encontrados ${ids.length} documentos.`);
+            // Limita a 20 documentos para teste de performance
+            const ids = Array.from(idsSet).slice(0, 20);
+            console.log(`   🔎 Encontrados ${idsSet.size} documentos. Processando os ${ids.length} primeiros (modo teste).`);
 
             for (const id of ids) {
                 const pageUrl = `${BASE_URL}/lrf.php?id=${id}`;
