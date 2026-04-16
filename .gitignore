@@ -1,0 +1,13 @@
+# Dependências
+node_modules/
+
+# Variáveis de ambiente (NUNCA subir para o GitHub!)
+.env
+
+# Logs
+last-run.log
+*.log
+
+# Arquivos temporários
+scratch/
+.vscode/
