@@ -97,8 +97,12 @@ async function extrairDetalhesLRF(pageUrl) {
     }
 }
 
-async function iniciar() {
-    console.log(`🚀 Iniciando raspagem de Arquivos da LRF para ${MUNICIP_NOME}...`);
+async function rasparLRF() {
+    const args = process.argv.slice(2);
+    const limitArg = args.find(a => a.startsWith('--limit='));
+    const limit = limitArg ? parseInt(limitArg.split('=')[1], 10) : 20;
+
+    console.log(`\n🚀 Iniciando raspagem de LRF | Limite: ${limit === 0 ? 'ILIMITADO' : limit} | Município: ${MUNICIP_NOME}...`);
 
     try {
         // Pega o ID do município
@@ -124,9 +128,9 @@ async function iniciar() {
                 if (id) idsSet.add(id);
             });
 
-            // Limita a 20 documentos para teste de performance
-            const ids = Array.from(idsSet).slice(0, 20);
-            console.log(`   🔎 Encontrados ${idsSet.size} documentos. Processando os ${ids.length} primeiros (modo teste).`);
+            // Aplica limite se definido, senão coleta todos
+            const ids = limit > 0 ? Array.from(idsSet).slice(0, limit) : Array.from(idsSet);
+            console.log(`   🔎 Encontrados ${idsSet.size} documentos. Processando os ${ids.length} primeiros${limit > 0 ? ` (limite de ${limit})` : ' (todos)'}.`);
 
             for (const id of ids) {
                 const pageUrl = `${BASE_URL}/lrf.php?id=${id}`;
@@ -165,8 +169,9 @@ async function iniciar() {
                     console.log(`   📥 ${tituloDoc}`);
 
                     // uploadPDF retorna array de { storageUrl, urlOriginal }
-                    // Um item = PDF normal; N itens = PDF dividido por tamanho
-                    const partes = await scraperService.uploadPDF(pdfUrl, 'arquivos_municipais');
+                    // Passamos a pasta dinâmica: Aracati/LRF
+                    const folderPath = `${MUNICIP_NOME}/LRF`;
+                    const partes = await scraperService.uploadPDF(pdfUrl, 'arquivos_municipais', folderPath);
 
                     if (partes.length === 0) {
                         console.log(`      ❌ Upload falhou completamente. Pulando.`);

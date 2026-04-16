@@ -1,24 +1,42 @@
 const axios = require('axios');
 const { supabase } = require('../lib/supabase-bot');
 
-// Limite seguro: 45MB (margem abaixo do limite de 50MB do Supabase free tier)
+// Limite seguro: 45MB (90% do limite de 50MB do Supabase Free)
 const MAX_UPLOAD_BYTES = 45 * 1024 * 1024;
 
 class ScraperService {
   /**
+   * Remove acentos, espaços e caracteres especiais para nomes de arquivos seguros.
+   */
+  sanitizeFilename(name) {
+    if (!name) return 'arquivo_sem_nome';
+    return name
+      .normalize('NFD') // Decompõe acentos
+      .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+      .replace(/[^a-zA-Z0-9.-]/g, '_') // Substitui especiais por _ (mantém ponto e hífen)
+      .replace(/_{2,}/g, '_') // Remove múltiplos _
+      .toLowerCase()
+      .trim();
+  }
+
+  /**
    * Faz o download de uma mídia (imagem) e sobe para o Supabase Storage.
    * Para PDFs grandes, use uploadPDF() que suporta divisão automática.
    */
-  async uploadMedia(url, bucketName = 'arquivos_municipais') {
+  async uploadMedia(url, bucketName = 'arquivos_municipais', folderPath = '') {
     try {
       if (!url || url.startsWith('data:')) return null;
 
-      const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 30000 });
+      const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 60000 });
       const buffer = Buffer.from(response.data, 'binary');
 
-      const fileName  = url.split('/').pop().split('?')[0];
+      const originalName = url.split('/').pop().split('?')[0];
+      const fileName = this.sanitizeFilename(originalName);
       const timestamp = Date.now();
-      const path      = `${timestamp}_${fileName}`;
+      
+      // Constrói o path com a pasta, se fornecida
+      const folder = folderPath ? (folderPath.endsWith('/') ? folderPath : `${folderPath}/`) : '';
+      const path = `${folder}${timestamp}_${fileName}`;
 
       const { error } = await supabase.storage
         .from(bucketName)
@@ -43,22 +61,26 @@ class ScraperService {
    *
    * @param {string} url         - URL do PDF a baixar
    * @param {string} bucketName  - Bucket do Supabase Storage
+   * @param {string} folderPath  - Pasta opcional (ex: 'Aracati/lrf')
    * @returns {Promise<Array<{storageUrl: string, urlOriginal: string}>>}
    *          Array com objetos { storageUrl, urlOriginal } de cada parte.
    *          Retorna array vazio em caso de falha total.
    */
-  async uploadPDF(url, bucketName = 'arquivos_municipais') {
+  async uploadPDF(url, bucketName = 'arquivos_municipais', folderPath = '') {
     try {
       console.log(`      ⬇️  Baixando PDF...`);
-      const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 60000 });
+      const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 120000 });
       const buffer   = Buffer.from(response.data, 'binary');
       const sizeMB   = (buffer.length / 1024 / 1024).toFixed(1);
-      const baseName = url.split('/').pop().split('?')[0];
+      const originalName = url.split('/').pop().split('?')[0];
+      const fileName = this.sanitizeFilename(originalName);
       const timestamp = Date.now();
+      
+      const folder = folderPath ? (folderPath.endsWith('/') ? folderPath : `${folderPath}/`) : '';
 
       // ── Arquivo dentro do limite ──────────────────────────────────────────
       if (buffer.length <= MAX_UPLOAD_BYTES) {
-        const path = `${timestamp}_${baseName}`;
+        const path = `${folder}${timestamp}_${fileName}`;
         const { error } = await supabase.storage
           .from(bucketName)
           .upload(path, buffer, { contentType: 'application/pdf', upsert: true });
@@ -108,7 +130,7 @@ class ScraperService {
 
         const partBuffer = Buffer.from(await partDoc.save());
         const parteMB    = (partBuffer.length / 1024 / 1024).toFixed(1);
-        const partePath  = `${timestamp}_parte${parte}of${numPartes}_${baseName}`;
+        const partePath  = `${folder}${timestamp}_parte${parte}of${numPartes}_${fileName}`;
         const urlParteOriginal = `${url}#parte${parte}de${numPartes}`;
 
         const { error: uploadErr } = await supabase.storage

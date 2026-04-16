@@ -1,9 +1,10 @@
 -- Rode isso no painel do Supabase (SQL Editor)
 
-CREATE TABLE IF NOT EXISTS public.tab_atos (
+CREATE TABLE IF NOT EXISTS public.tab_lrf (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     municipio_id UUID NOT NULL REFERENCES public.tab_municipios(id) ON DELETE CASCADE,
     titulo TEXT NOT NULL,
+    tipo TEXT, -- Ex: "RREO", "RGF", "LOA", "LDO"
     ano INTEGER,
     competencia TEXT, -- Ex: "ANUAL/2026", "1º Bimestre"
     data_publicacao TIMESTAMPTZ,
@@ -14,8 +15,9 @@ CREATE TABLE IF NOT EXISTS public.tab_atos (
 );
 
 -- Ativar RLS
-ALTER TABLE tab_atos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tab_lrf ENABLE ROW LEVEL SECURITY;
 
 -- Políticas de acesso público (Leitura)
-DROP POLICY IF EXISTS "Leitura pública para Atos" ON tab_atos;
-CREATE POLICY "Leitura pública para Atos" ON tab_atos FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Leitura pública para LRF" ON tab_lrf;
+CREATE POLICY "Leitura pública para LRF" ON tab_lrf FOR SELECT USING (true);
+

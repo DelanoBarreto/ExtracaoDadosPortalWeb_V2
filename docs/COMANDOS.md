@@ -39,3 +39,17 @@ Se houver necessidade de gerenciar o banco localmente:
 ---
 > [!TIP]
 > Use o prefixo `npx` para garantir que as ferramentas utilizem as versões instaladas no projeto.
+
+
+Terminal 1: Servidor Backend (API)
+Este terminal gerencia a comunicação com o banco de dados Supabase e executa os scripts de raspagem. No diretório raiz (ExtracaoDadosProtalWeb), execute:
+
+node src/server.js
+
+
+Terminal 2: Dashboard (Frontend)
+Este terminal gerencia a interface visual que você está desenvolvendo. No diretório admin-dashboard, execute:
+
+cd admin-dashboard
+npm run dev
+

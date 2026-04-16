@@ -69,7 +69,11 @@ async function extrairDetalhesNoticia(url) {
 }
 
 async function rasparNoticiasV2() {
-  console.log('🚀 Iniciando raspagem de NOTICIAS (Motor v2)...');
+  const args = process.argv.slice(2);
+  const limitArg = args.find(a => a.startsWith('--limit='));
+  const limit = limitArg ? parseInt(limitArg.split('=')[1], 10) : 20;
+
+  console.log(`🚀 Iniciando raspagem de NOTICIAS (Motor v2) | Limite: ${limit === 0 ? 'ILIMITADO' : limit}...`);
 
   const { data: municipio } = await supabase
     .from('tab_municipios')
@@ -120,7 +124,8 @@ async function rasparNoticiasV2() {
       let novaImagemUrl = null;
       if (item.imagemOriginal) {
         console.log(`   - Subindo imagem...`);
-        novaImagemUrl = await scraperService.uploadMedia(item.imagemOriginal);
+        const folderPath = `${municipio.nome}/noticias`;
+        novaImagemUrl = await scraperService.uploadMedia(item.imagemOriginal, 'arquivos_municipais', folderPath);
       }
 
       const sucesso = await scraperService.salvarNoticia({
