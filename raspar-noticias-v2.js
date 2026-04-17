@@ -93,58 +93,94 @@ async function rasparNoticiasV2() {
     const $ = cheerio.load(html);
     
     const linksProcessados = new Set();
-    const itemQueue = [];
+    let itemsSaved = 0;
+    const effectiveLimit = limit === 0 ? Infinity : limit;
+    let currentPage = 0;
+    let hasMorePages = true;
 
-    // Coleta links e imagens da lista
-    $('a[href*="/informa/"]').each((i, el) => {
-      const link = $(el).attr('href');
-      const img = $(el).find('img').attr('src');
-      const urlCompleta = link.startsWith('http') ? link : `${municipio.url_base}/${link.replace(/^\//, '')}`;
-
-      if (!linksProcessados.has(urlCompleta) && itemQueue.length < 20) {
-        linksProcessados.add(urlCompleta);
-        itemQueue.push({
-          url: urlCompleta,
-          imagemOriginal: img ? (img.startsWith('http') ? img : `${municipio.url_base}/${img.replace(/^\//, '')}`) : null
-        });
-      }
-    });
-
-    console.log(`📌 Encontradas ${itemQueue.length} notícias para processar (Limite de 20).`);
-
-    for (const item of itemQueue) {
-      console.log(`\n⏳ [${itemQueue.indexOf(item) + 1}/20] Processando: ${item.url}`);
+    while (itemsSaved < effectiveLimit && hasMorePages) {
+      const urlComPagina = currentPage === 0 ? urlLista : `${urlLista}?pagina=${currentPage}`;
+      console.log(`\n📄 [PÁGINA ${currentPage + 1}] Lendo links de: ${urlComPagina}`);
       
-      const detalhes = await extrairDetalhesNoticia(item.url);
-      if (!detalhes) continue;
+      const { data: pageHtml } = await axios.get(urlComPagina);
+      const $page = cheerio.load(pageHtml);
+      
+      const pageItems = [];
+      $page('a[href*="/informa/"]').each((i, el) => {
+        const link = $page(el).attr('href');
+        const img = $page(el).find('img').attr('src');
+        const urlCompleta = link.startsWith('http') ? link : `${municipio.url_base}/${link.replace(/^\//, '')}`;
 
-      console.log(`   - Título: ${detalhes.titulo.substring(0, 40)}...`);
-      console.log(`   - Data: ${detalhes.dataPublicacao || 'N/A'}`);
-
-      let novaImagemUrl = null;
-      if (item.imagemOriginal) {
-        console.log(`   - Subindo imagem...`);
-        const folderPath = `${municipio.nome}/noticias`;
-        novaImagemUrl = await scraperService.uploadMedia(item.imagemOriginal, 'arquivos_municipais', folderPath);
-      }
-
-      const sucesso = await scraperService.salvarNoticia({
-        municipio_id: municipio.id,
-        titulo: detalhes.titulo,
-        url_original: item.url,
-        imagem_url: novaImagemUrl,
-        conteudo: detalhes.conteudo,
-        resumo: detalhes.resumo,
-        data_publicacao: detalhes.dataPublicacao,
-        autor: detalhes.autor,
-        categoria: detalhes.categoria,
-        acessos: detalhes.acessos
+        if (!linksProcessados.has(urlCompleta)) {
+          linksProcessados.add(urlCompleta);
+          pageItems.push({
+            url: urlCompleta,
+            imagemOriginal: img ? (img.startsWith('http') ? img : `${municipio.url_base}/${img.replace(/^\//, '')}`) : null
+          });
+        }
       });
 
-      if (sucesso) console.log('   ✅ Salvo no Supabase!');
+      if (pageItems.length === 0) {
+        console.log('   🏁 Nenhuma nova notícia encontrada nesta página. Fim da lista.');
+        hasMorePages = false;
+        break;
+      }
+
+      console.log(`   🔎 Encontrados ${pageItems.length} links na página. Verificando novidades...`);
+
+      for (const item of pageItems) {
+        if (itemsSaved >= effectiveLimit) break;
+
+        // Verificação preventiva robusta
+        const { data: existente } = await supabase
+          .from('tab_noticias')
+          .select('id')
+          .eq('url_original', item.url)
+          .maybeSingle();
+
+        if (existente) {
+          console.log(`   ⏭️ [${pageItems.indexOf(item) + 1}/${pageItems.length}] Já cadastrado. Pulando.`);
+          continue;
+        }
+
+        console.log(`   ✨ [${pageItems.indexOf(item) + 1}/${pageItems.length}] NOVO ITEM DETECTADO. Processando...`);
+        const detalhes = await extrairDetalhesNoticia(item.url);
+        if (!detalhes) continue;
+
+        let novaImagemUrl = null;
+        if (item.imagemOriginal) {
+          const folderPath = `${municipio.nome}/noticias`;
+          novaImagemUrl = await scraperService.uploadMedia(item.imagemOriginal, 'arquivos_municipais', folderPath);
+        }
+
+        const sucesso = await scraperService.salvarNoticia({
+          municipio_id: municipio.id,
+          titulo: detalhes.titulo,
+          url_original: item.url,
+          imagem_url: novaImagemUrl,
+          conteudo: detalhes.conteudo,
+          resumo: detalhes.resumo,
+          data_publicacao: detalhes.dataPublicacao,
+          autor: detalhes.autor,
+          categoria: detalhes.categoria,
+          acessos: detalhes.acessos
+        });
+
+        if (sucesso) {
+          console.log('   ✅ Salvo no Supabase!');
+          itemsSaved++;
+        }
+      }
+
+      currentPage++;
+      // Segurança: evitar loops infinitos (máximo 50 páginas por execução)
+      if (currentPage >= 50 && effectiveLimit !== Infinity) {
+          console.log('   ⚠️ Teto de 50 páginas atingido. Encerrando para segurança.');
+          hasMorePages = false;
+      }
     }
 
-    console.log('\n✨ Raspagem v2 concluída com sucesso!');
+    console.log(`\n✨ Raspagem concluída! Total de novos itens adicionados: ${itemsSaved}`);
 
   } catch (err) {
     console.error('💥 Erro fatal:', err.message);

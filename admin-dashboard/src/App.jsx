@@ -5,7 +5,8 @@ import {
   ChevronRight, Search, MapPin, Clock, ExternalLink, AlertCircle,
   CheckCircle2, Terminal, FileDown, Building2, Menu, X, Info,
   BarChart3, Database, HardDrive, ChevronDown, Plus, Link,
-  Gavel, ScrollText, BookMarked, BookOpen, Globe
+  Gavel, ScrollText, BookMarked, BookOpen, Globe, Pencil, Eye,
+  ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react';
 
 const API_BASE = 'http://localhost:3001/api';
@@ -149,104 +150,6 @@ function NewMunicipioModal({ onClose, onCreated }) {
   );
 }
 
-// ─── Module Dropdown ──────────────────────────────────────────────────────────
-function ModuleDropdown({ activeModule, onSelect }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-  const current = MODULES.find(m => m.id === activeModule) || MODULES[0];
-  const Icon = current.icon;
-
-  useEffect(() => {
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <button
-        onClick={() => setOpen(v => !v)}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '8px 14px',
-          background: open ? 'var(--surface-2)' : 'var(--white)',
-          border: '1.5px solid var(--border)',
-          borderRadius: 'var(--r-md)',
-          cursor: 'pointer',
-          fontFamily: 'Source Sans 3, sans-serif',
-          fontSize: 13, fontWeight: 600,
-          color: 'var(--text-primary)',
-          transition: 'all .15s',
-          minWidth: 190,
-          boxShadow: 'var(--sh-sm)',
-        }}
-      >
-        <span style={{
-          width: 22, height: 22, borderRadius: 6,
-          background: 'var(--navy)', display: 'flex',
-          alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-        }}>
-          <Icon size={12} color="#fff" />
-        </span>
-        <span style={{ flex: 1, textAlign: 'left' }}>{current.label}</span>
-        <ChevronDown size={13} style={{ color: 'var(--text-muted)', transform: open ? 'rotate(180deg)' : '', transition: 'transform .15s' }} />
-      </button>
-
-      {open && (
-        <div style={{
-          position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
-          background: 'var(--white)',
-          border: '1.5px solid var(--border)',
-          borderRadius: 'var(--r-lg)',
-          boxShadow: 'var(--sh-xl)',
-          overflow: 'hidden', zIndex: 200,
-          animation: 'fadeUp .15s ease',
-        }}>
-          {MODULES.map(mod => {
-            const MIcon = mod.icon;
-            const isActive = mod.id === activeModule;
-            return (
-              <button
-                key={mod.id}
-                onClick={() => { if (mod.ready) { onSelect(mod.id); setOpen(false); } }}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  width: '100%', padding: '10px 14px',
-                  background: isActive ? 'var(--surface-2)' : 'transparent',
-                  border: 'none',
-                  cursor: mod.ready ? 'pointer' : 'not-allowed',
-                  textAlign: 'left',
-                  fontFamily: 'Source Sans 3, sans-serif',
-                  fontSize: 13, fontWeight: isActive ? 700 : 500,
-                  color: !mod.ready ? 'var(--text-muted)' : isActive ? 'var(--navy)' : 'var(--text-primary)',
-                  transition: 'background .1s',
-                  opacity: mod.ready ? 1 : .55,
-                }}
-                onMouseEnter={e => { if (mod.ready && !isActive) e.currentTarget.style.background = 'var(--surface)'; }}
-                onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
-              >
-                <span style={{
-                  width: 22, height: 22, borderRadius: 6,
-                  background: isActive ? 'var(--navy)' : 'var(--surface-2)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                }}>
-                  <MIcon size={12} color={isActive ? '#fff' : 'var(--text-muted)'} />
-                </span>
-                <span style={{ flex: 1 }}>{mod.label}</span>
-                {!mod.ready && (
-                  <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', background: 'var(--surface-2)', color: 'var(--text-muted)', padding: '2px 6px', borderRadius: 4 }}>
-                    Em Breve
-                  </span>
-                )}
-                {isActive && <CheckCircle2 size={13} color="var(--navy)" />}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
@@ -257,12 +160,30 @@ export default function App() {
   const [scrapeLimit,       setScrapeLimit]       = useState(20);
   const [noticias,          setNoticias]          = useState([]);
   const [lrfItems,          setLrfItems]          = useState([]);
+  const [sortConfig, setSortConfig] = useState({ key: 'data_publicacao', direction: 'desc' });
+
+  // ── Sorting Logic ──
+  const requestSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const renderSortIcon = (key) => {
+    if (sortConfig.key !== key) return <ArrowUpDown size={12} style={{ opacity: 0.3 }} />;
+    return sortConfig.direction === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />;
+  };
   const [logs,              setLogs]              = useState('Monitorando sistema...\n');
   const [isScraping,        setIsScraping]        = useState(false);
   const [selectedItem,      setSelectedItem]      = useState(null);
   const [searchTerm,        setSearchTerm]        = useState('');
   const [sidebarOpen,       setSidebarOpen]       = useState(true);
   const [showNewModal,      setShowNewModal]      = useState(false);
+  const [viewMode,          setViewMode]          = useState('cards'); // 'cards' | 'table'
+  const [moduleMenuOpen,    setModuleMenuOpen]    = useState(false);
+  const [cityMenuOpen,      setCityMenuOpen]      = useState(false);
 
   const logRef = useRef(null);
 
@@ -273,6 +194,15 @@ export default function App() {
 
   useEffect(() => { fetchMunicipios(); fetchStats(); }, []);
   useEffect(() => { fetchData(); }, [activeModule]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (moduleMenuOpen && !e.target.closest('.sidebar-module-selector')) setModuleMenuOpen(false);
+      if (cityMenuOpen && !e.target.closest('.sidebar-city-selector')) setCityMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [moduleMenuOpen, cityMenuOpen]);
 
   useEffect(() => {
     if (!isScraping) return;
@@ -333,6 +263,32 @@ export default function App() {
     }
   };
 
+  const handleDeleteItem = async (item) => {
+    const ok = window.confirm(`Deseja excluir permanentemente este registro e o arquivo associado?`);
+    if (!ok) return;
+
+    appendLog(`🗑️ Excluindo item: ${item.titulo.substring(0, 30)}...`);
+    try {
+      const table  = activeModule === 'noticias' ? 'tab_noticias' : 'tab_lrf';
+      const fileUrl = activeModule === 'noticias' ? item.imagem_url : item.arquivo_url;
+      
+      await axios.delete(`${API_BASE}/items`, {
+        params: {
+          id: item.id,
+          table,
+          bucket: 'arquivos_municipais',
+          file_url: fileUrl
+        }
+      });
+      
+      appendLog(`✅ Registro e arquivo removidos.`);
+      fetchStats();
+      fetchData();
+    } catch (e) {
+      appendLog(`❌ Erro ao deletar: ${e.response?.data?.error || e.message}`);
+    }
+  };
+
   const handleClearData = async () => {
     if (!selectedMunicipio) return;
     const mod = MODULES.find(m => m.id === activeModule);
@@ -341,12 +297,9 @@ export default function App() {
     );
     if (!okDb) return;
 
-    let deleteStorage = false;
-    if (activeModule === 'lrf') {
-      deleteStorage = window.confirm(
-        `Deseja apagar também todos os ARQUIVOS PDF no Storage referentes a este módulo?\n\nSe clicar em "OK", os PDFs serão deletados permanentemente. Caso "Cancelar", os arquivos permanecerão.`
-      );
-    }
+    const deleteStorage = window.confirm(
+      `Deseja apagar também todos os ARQUIVOS (Imagens/PDFs) no Storage referentes a este módulo?\n\nEsta ação limpa a pasta "${selectedMunicipio.nome}/${activeModule === 'lrf' ? 'LRF' : activeModule}".`
+    );
 
     appendLog(`🗑️ Limpando ${mod?.label} — ${selectedMunicipio.nome}...`);
     try {
@@ -376,9 +329,29 @@ export default function App() {
 
   // ── Derived ──────────────────────────────────────────────
   const displayData = (() => {
-    const source = activeModule === 'noticias' ? noticias : lrfItems;
-    if (!selectedMunicipio) return source;
-    return source.filter(i => i.municipio_id === selectedMunicipio.id);
+    let source = activeModule === 'noticias' ? noticias : lrfItems;
+    if (selectedMunicipio) {
+      source = source.filter(i => i.municipio_id === selectedMunicipio.id);
+    }
+    
+    if (sortConfig.key) {
+      const sorted = [...source].sort((a, b) => {
+        let valA = a[sortConfig.key];
+        let valB = b[sortConfig.key];
+        
+        // Trata Exercício especial (ano ou data)
+        if (sortConfig.key === 'ano') {
+          valA = getExercicio(a);
+          valB = getExercicio(b);
+        }
+
+        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+      return sorted;
+    }
+    return source;
   })();
 
   const filteredMunicipios = municipios.filter(m =>
@@ -408,78 +381,200 @@ export default function App() {
           </div>
         </div>
 
-        {/* Search */}
-        <div className="sidebar-search" style={{ position: 'relative' }}>
-          <Search size={14} style={{ position: 'absolute', left: 32, top: '50%', transform: 'translateY(-50%)', color: 'var(--navy-200)', pointerEvents: 'none' }} />
-          <input
-            placeholder="Buscar município..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            style={{ paddingLeft: 36 }}
-          />
+
+        <div className="sidebar-label">Instância Municipal</div>
+        <div style={{ padding: '0 10px', marginBottom: 16 }} className="sidebar-city-selector">
+          <div style={{ position: 'relative' }}>
+             <button 
+                onClick={() => setCityMenuOpen(!cityMenuOpen)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  width: '100%', padding: '10px 14px',
+                  background: 'rgba(255,255,255,0.06)',
+                  border: `1px solid ${cityMenuOpen ? 'var(--accent)' : 'rgba(255,255,255,0.1)'}`,
+                  borderRadius: 'var(--r-md)',
+                  cursor: 'pointer', color: 'var(--white)',
+                  fontFamily: 'Source Sans 3, sans-serif',
+                  fontSize: 14, fontWeight: 600,
+                  transition: 'all .25s',
+                  boxShadow: cityMenuOpen ? '0 0 15px rgba(245,158,11,0.15)' : 'none'
+                }}
+             >
+                <div style={{
+                  width: 26, height: 26, borderRadius: 6,
+                  background: 'rgba(255,255,255,0.1)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0
+                }}>
+                  {selectedMunicipio ? <MapPin size={14} color="var(--accent)" /> : <Building2 size={14} color="#fff" />}
+                </div>
+                <span style={{ flex: 1, textAlign: 'left', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {selectedMunicipio ? selectedMunicipio.nome : 'Todos os Municípios'}
+                </span>
+                <ChevronDown size={14} style={{ opacity: .5, transform: cityMenuOpen ? 'rotate(180deg)' : '', transition: 'transform .2s' }} />
+             </button>
+
+             {cityMenuOpen && (
+               <div style={{
+                 position: 'absolute', top: 'calc(100% + 8px)', left: 0, right: 0,
+                 background: '#0D1B2D', border: '1px solid rgba(255,255,255,0.12)',
+                 borderRadius: 'var(--r-lg)', boxShadow: '0 12px 30px -5px rgba(0,0,0,0.5)',
+                 zIndex: 500, animation: 'fadeUp .15s ease', display: 'flex', flexDirection: 'column'
+               }}>
+                  <div style={{ padding: 10, borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                    <input 
+                      autoFocus
+                      placeholder="Pesquisar cidade..."
+                      value={searchTerm}
+                      onChange={e => setSearchTerm(e.target.value)}
+                      style={{
+                        width: '100%', padding: '8px 12px', background: 'rgba(255,255,255,0.05)',
+                        border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6,
+                        color: '#fff', fontSize: 13, outline: 'none'
+                      }}
+                      onClick={e => e.stopPropagation()}
+                    />
+                  </div>
+                  <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+                    <button
+                      onClick={() => { setSelectedMunicipio(null); setCityMenuOpen(false); }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 14px',
+                        background: !selectedMunicipio ? 'rgba(245,158,11,0.1)' : 'transparent', border: 'none',
+                        cursor: 'pointer', color: !selectedMunicipio ? 'var(--accent)' : 'var(--white)',
+                        fontSize: 13, fontWeight: !selectedMunicipio ? 700 : 500, textAlign: 'left'
+                      }}
+                    >
+                      <Building2 size={14} /> Todos os Municípios
+                    </button>
+                    {filteredMunicipios.map(m => {
+                      const isActive = selectedMunicipio?.id === m.id;
+                      return (
+                        <button
+                          key={m.id}
+                          onClick={() => { setSelectedMunicipio(m); setCityMenuOpen(false); }}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 14px',
+                            background: isActive ? 'rgba(245,158,11,0.15)' : 'transparent', border: 'none',
+                            cursor: 'pointer', color: isActive ? 'var(--accent)' : 'var(--white)',
+                            fontSize: 13, fontWeight: isActive ? 700 : 500, textAlign: 'left'
+                          }}
+                        >
+                           <MapPin size={14} /> {m.nome}
+                           {isActive && <CheckCircle2 size={12} style={{ marginLeft: 'auto' }} />}
+                        </button>
+                      )
+                    })}
+                  </div>
+               </div>
+             )}
+          </div>
         </div>
 
-        {/* All */}
-        <div style={{ padding: '0 10px' }}>
-          <button
-            className={`city-btn ${!selectedMunicipio ? 'active' : ''}`}
-            onClick={() => setSelectedMunicipio(null)}
-            style={{ width: '100%', margin: '0 0 4px' }}
-          >
-            <div className="dot" />
-            <Building2 size={15} style={{ opacity: .7 }} />
-            <span>Todos os Municípios</span>
-          </button>
+        <div className="sidebar-label">Monitoramento e Coleta</div>
+        <div style={{ padding: '0 10px', marginBottom: 16 }} className="sidebar-module-selector">
+          <div style={{ position: 'relative' }}>
+             <button 
+                onClick={() => setModuleMenuOpen(!moduleMenuOpen)}
+                style={{
+                  display: 'flex', alignInter: 'center', alignItems: 'center', gap: 10,
+                  width: '100%', padding: '10px 14px',
+                  background: 'rgba(255,255,255,0.06)',
+                  border: `1px solid ${moduleMenuOpen ? 'var(--accent)' : 'rgba(255,255,255,0.1)'}`,
+                  borderRadius: 'var(--r-md)',
+                  cursor: 'pointer', color: 'var(--white)',
+                  fontFamily: 'Source Sans 3, sans-serif',
+                  fontSize: 14, fontWeight: 600,
+                  transition: 'all .25s',
+                  boxShadow: moduleMenuOpen ? '0 0 15px rgba(245,158,11,0.15)' : 'none'
+                }}
+             >
+                <div style={{
+                  width: 26, height: 26, borderRadius: 6,
+                  background: 'var(--accent)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0
+                }}>
+                  <currentMod.icon size={14} color="#0A1628" />
+                </div>
+                <span style={{ flex: 1, textAlign: 'left', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {currentMod.label}
+                </span>
+                <ChevronDown size={14} style={{ opacity: .5, transform: moduleMenuOpen ? 'rotate(180deg)' : '', transition: 'transform .2s' }} />
+             </button>
+
+             {moduleMenuOpen && (
+               <div style={{
+                 position: 'absolute', top: 'calc(100% + 8px)', left: 0, right: 0,
+                 background: '#0D1B2D', border: '1px solid rgba(255,255,255,0.12)',
+                 borderRadius: 'var(--r-lg)', boxShadow: '0 12px 30px -5px rgba(0,0,0,0.5)',
+                 overflow: 'hidden', zIndex: 500, animation: 'fadeUp .15s ease'
+               }}>
+                  {MODULES.map(mod => {
+                    const MIcon = mod.icon;
+                    const isActive = mod.id === activeModule;
+                    return (
+                        <button
+                          key={mod.id}
+                          onClick={() => { if (mod.ready) { setActiveModule(mod.id); setModuleMenuOpen(false); } }}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 14px',
+                            background: isActive ? 'rgba(245,158,11,0.15)' : 'transparent', border: 'none',
+                            cursor: mod.ready ? 'pointer' : 'not-allowed', color: isActive ? 'var(--accent)' : 'var(--white)',
+                            fontSize: 13, fontWeight: isActive ? 700 : 500, transition: 'all .1s', opacity: mod.ready ? 1 : .5,
+                            textAlign: 'left'
+                          }}
+                        >
+                           <div style={{
+                             width: 22, height: 22, borderRadius: 5,
+                             background: isActive ? 'var(--accent)' : 'rgba(255,255,255,0.05)',
+                             display: 'flex', alignItems: 'center', justifyContent: 'center'
+                           }}>
+                             <MIcon size={12} color={isActive ? '#0A1628' : '#fff'} />
+                           </div>
+                           <span style={{ flex: 1 }}>{mod.label}</span>
+                           {!mod.ready && <span style={{ fontSize: 8, fontWeight: 800, background: 'rgba(255,255,255,0.05)', padding: '2px 4px', borderRadius: 3 }}>BREVE</span>}
+                           {isActive && <CheckCircle2 size={12} />}
+                        </button>
+                    )
+                  })}
+               </div>
+             )}
+          </div>
         </div>
 
-        <div className="sidebar-label">Cidades</div>
-
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0 10px', paddingBottom: 8 }}>
-          {filteredMunicipios.map(m => (
+        <div style={{ marginTop: 'auto' }}>
+          {/* Add municipality button */}
+          <div style={{ padding: '8px 10px' }}>
             <button
-              key={m.id}
-              className={`city-btn ${selectedMunicipio?.id === m.id ? 'active' : ''}`}
-              onClick={() => setSelectedMunicipio(m)}
-              style={{ width: '100%', margin: '1px 0' }}
+              onClick={() => setShowNewModal(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                width: '100%', padding: '10px 12px',
+                background: 'rgba(245,158,11,.1)',
+                border: '1px dashed rgba(245,158,11,.4)',
+                borderRadius: 'var(--r-md)',
+                cursor: 'pointer', color: 'var(--accent)',
+                fontFamily: 'Source Sans 3, sans-serif',
+                fontSize: 13, fontWeight: 700,
+                transition: 'all .15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(245,158,11,.18)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(245,158,11,.1)'; }}
             >
-              <div className="dot" />
-              <MapPin size={14} style={{ opacity: .6 }} />
-              <span style={{ flex: 1 }}>{m.nome}</span>
-              <ChevronRight size={13} style={{ opacity: .4 }} />
+              <Plus size={15} />
+              Novo Município
             </button>
-          ))}
-        </div>
+          </div>
 
-        {/* Add municipality button */}
-        <div style={{ padding: '8px 10px' }}>
-          <button
-            onClick={() => setShowNewModal(true)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              width: '100%', padding: '10px 12px',
-              background: 'rgba(245,158,11,.1)',
-              border: '1px dashed rgba(245,158,11,.4)',
-              borderRadius: 'var(--r-md)',
-              cursor: 'pointer', color: 'var(--accent)',
-              fontFamily: 'Source Sans 3, sans-serif',
-              fontSize: 13, fontWeight: 700,
-              transition: 'all .15s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(245,158,11,.18)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(245,158,11,.1)'; }}
-          >
-            <Plus size={15} />
-            Novo Município
-          </button>
-        </div>
-
-        {/* Footer */}
-        <div className="sidebar-footer">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 10, padding: '10px 14px' }}>
-            <div style={{ width: 34, height: 34, borderRadius: 8, background: 'linear-gradient(135deg,var(--navy-700),var(--navy-400))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Lexend,sans-serif', fontWeight: 800, fontSize: 13, color: '#fff', flexShrink: 0 }}>AD</div>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>Administrador</div>
-              <div style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase' }}>Acesso Master</div>
+          {/* Footer */}
+          <div className="sidebar-footer" style={{ marginTop: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 10, padding: '10px 14px' }}>
+              <div style={{ width: 34, height: 34, borderRadius: 8, background: 'linear-gradient(135deg,var(--navy-700),var(--navy-400))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Lexend,sans-serif', fontWeight: 800, fontSize: 13, color: '#fff', flexShrink: 0 }}>AD</div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>Administrador</div>
+                <div style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase' }}>Acesso Master</div>
+              </div>
             </div>
           </div>
         </div>
@@ -506,9 +601,6 @@ export default function App() {
             </p>
           </div>
 
-          <div style={{ marginRight: 20 }}>
-            <ModuleDropdown activeModule={activeModule} onSelect={setActiveModule} />
-          </div>
         </header>
 
         {/* Action Bar */}
@@ -584,9 +676,25 @@ export default function App() {
           {/* Data Feed */}
           <div className="data-feed">
             <div className="section-header">
-              <h3>
-                {selectedMunicipio ? selectedMunicipio.nome : 'Todos os Municípios'} — {currentMod.label}
-              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <h3>
+                  {selectedMunicipio ? selectedMunicipio.nome : 'Todos os Municípios'} — {currentMod.label}
+                </h3>
+                <div className="tab-bar">
+                   <button 
+                     className={`tab-btn ${viewMode === 'cards' ? 'active' : ''}`}
+                     onClick={() => setViewMode('cards')}
+                   >
+                     <LayoutDashboard size={13} /> Cards
+                   </button>
+                   <button 
+                     className={`tab-btn ${viewMode === 'table' ? 'active' : ''}`}
+                     onClick={() => setViewMode('table')}
+                   >
+                     <Menu size={13} /> Tabela
+                   </button>
+                </div>
+              </div>
               <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
                 {displayData.length} {displayData.length === 1 ? 'item' : 'itens'}
               </span>
@@ -607,6 +715,7 @@ export default function App() {
                 <p>{selectedMunicipio ? 'Execute uma nova coleta para este município.' : 'Selecione um município e execute uma coleta.'}</p>
               </div>
             ) : (
+            viewMode === 'cards' ? (
               <div className="cards-grid">
                 {displayData.map((item, idx) => (
                   <article
@@ -638,6 +747,86 @@ export default function App() {
                   </article>
                 ))}
               </div>
+            ) : (
+              <div className="data-list">
+                {/* Header da Tabela Ultra-Otimizado */}
+                <div className="data-header">
+                  {activeModule === 'noticias' && <div className="header-col col-thumb">Capa</div>}
+                  <div className="header-col col-title flex-grow" onClick={() => requestSort('titulo')}>
+                    Título e Conteúdo {renderSortIcon('titulo')}
+                  </div>
+                  
+                  <div className="header-right-meta-group">
+                    <div className="header-meta-sort header-tipo">
+                      Tipo
+                    </div>
+                    <div className="header-meta-sort header-data" onClick={() => requestSort('data_publicacao')}>
+                      Data {renderSortIcon('data_publicacao')}
+                    </div>
+                    <div className="header-meta-sort header-exerc" onClick={() => requestSort('ano')}>
+                      Exerc. {renderSortIcon('ano')}
+                    </div>
+                    <div className="header-meta-sort header-status">
+                      S
+                    </div>
+                    <div className="header-meta-sort header-ops">
+                      Ops.
+                    </div>
+                  </div>
+                </div>
+
+                {displayData.map((item, idx) => (
+                  <div 
+                    key={item.id} 
+                    className="data-row row-compact row-ultra-wide"
+                    style={{ animationDelay: `${Math.min(idx * 0.03, 0.4)}s` }}
+                    onClick={() => setSelectedItem(item)}
+                  >
+                    {activeModule === 'noticias' && (
+                      <div className="row-thumb">
+                        {item.imagem_url ? (
+                          <img src={item.imagem_url} alt="" />
+                        ) : (
+                          <div className="thumb-placeholder"><Newspaper size={14} /></div>
+                        )}
+                      </div>
+                    )}
+                    
+                    <div className="row-content col-title flex-grow">
+                      <h4 className="row-title">{item.titulo}</h4>
+                    </div>
+
+                    <div className="row-right-group">
+                      <div className="row-meta-item item-tipo" title="Tipo">
+                        <span className={`badge ${activeModule === 'noticias' ? 'badge-news' : 'badge-lrf'}`}>
+                          {activeModule === 'noticias' ? (item.categoria || 'Notícia') : (item.tipo || 'LRF')}
+                        </span>
+                      </div>
+
+                      <div className="row-meta-item item-data" title="Data de Publicação">
+                        {formatDate(item.data_publicacao)}
+                      </div>
+
+                      <div className="row-meta-item item-exercicio" title="Exercício">
+                        {getExercicio(item)}
+                      </div>
+
+                      <div className="row-meta-item item-status">
+                        <span className="status-sync-clean">
+                          <CheckCircle2 size={12} /> OK
+                        </span>
+                      </div>
+
+                      <div className="row-actions-group" onClick={e => e.stopPropagation()}>
+                        <button className="icon-btn sm" title="Editar"><Pencil size={12} /></button>
+                        <button className="icon-btn sm" title="Visualizar" onClick={() => setSelectedItem(item)}><Eye size={12} /></button>
+                        <button className="icon-btn sm delete" title="Excluir" onClick={() => handleDeleteItem(item)}><Trash2 size={12} /></button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
             )}
           </div>
 
@@ -685,6 +874,36 @@ export default function App() {
               </div>
               <button className="modal-close" onClick={() => setSelectedItem(null)} aria-label="Fechar"><X size={16} /></button>
             </div>
+
+            {activeModule === 'noticias' && selectedItem.imagem_url && (
+              <div style={{ padding: '0 24px 20px' }}>
+                <div style={{ 
+                  width: '100%', height: 240, borderRadius: 'var(--r-lg)', overflow: 'hidden', 
+                  border: '1px solid var(--border)', background: 'var(--surface-2)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                  <img src={selectedItem.imagem_url} alt={selectedItem.titulo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                </div>
+              </div>
+            )}
+
+            {activeModule === 'lrf' && (
+              <div style={{ padding: '0 24px 20px' }}>
+                <div style={{ 
+                  width: '100%', padding: '30px 20px', borderRadius: 'var(--r-lg)', 
+                  background: 'linear-gradient(135deg, rgba(245,158,11,0.05), rgba(245,158,11,0.12))',
+                  border: '1px dashed var(--accent)', display: 'flex', flexDirection: 'column', 
+                  alignItems: 'center', gap: 12, textAlign: 'center'
+                }}>
+                  <FileText size={48} color="var(--accent)" />
+                  <div>
+                    <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 14 }}>Relatório Técnico / PDF</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>O arquivo oficial está disponível para download.</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="modal-meta">
               <div className="meta-block">
                 <div className="meta-label"><Clock size={11} />Publicado em</div>
@@ -692,9 +911,29 @@ export default function App() {
               </div>
               <div className="meta-block">
                 <div className="meta-label"><BarChart3 size={11} />Exercício</div>
-                <div className="meta-value">{selectedItem.competencia || getExercicio(selectedItem)}</div>
+                <div className="meta-value">
+                  {selectedItem.competencia && selectedItem.competencia.length < 50 
+                    ? selectedItem.competencia 
+                    : getExercicio(selectedItem)}
+                </div>
               </div>
             </div>
+
+            {selectedItem.competencia && selectedItem.competencia.length >= 50 && (
+              <div style={{ padding: '0 24px 24px' }}>
+                <div style={{ 
+                  padding: '16px', borderRadius: 'var(--r-md)', 
+                  background: 'var(--surface)', border: '1px solid var(--border)',
+                  fontSize: 13, lineHeight: '1.6', color: 'var(--text-secondary)'
+                }}>
+                  <div style={{ fontWeight: 800, color: 'var(--accent)', marginBottom: 8, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    <Info size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} /> 
+                    Descrição / Detalhamento
+                  </div>
+                  {selectedItem.competencia}
+                </div>
+              </div>
+            )}
             <div className="modal-actions">
               <a href={selectedItem.url_original} target="_blank" rel="noopener noreferrer" className="modal-btn modal-btn-primary">
                 <ExternalLink size={15} />Fonte Original

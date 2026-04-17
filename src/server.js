@@ -125,6 +125,41 @@ app.post('/api/scrape', (req, res) => {
     res.json({ message: `Raspagem de ${modulo} iniciada`, script: path.basename(scriptPath) });
 });
 
+// Deletar item individual (Banco + Storage)
+app.delete('/api/items', async (req, res) => {
+    const { id, table, bucket, file_url } = req.query;
+
+    if (!id || !table) {
+        return res.status(400).json({ error: 'Faltam parâmetros: id, table' });
+    }
+
+    try {
+        console.log(`🗑️ Deletando item ${id} da tabela ${table}...`);
+
+        // 1. Deletar arquivo do Storage se houver URL
+        if (file_url && bucket) {
+            // Extrai o path do arquivo da URL do Supabase
+            // Formato: .../storage/v1/object/public/BUCKET/FOLDER/FILE
+            const pathParts = file_url.split(`${bucket}/`);
+            if (pathParts.length > 1) {
+                const filePath = decodeURIComponent(pathParts[1]);
+                console.log(`   📁 Removendo arquivo do Storage: ${filePath}`);
+                const { error: storageError } = await supabase.storage.from(bucket).remove([filePath]);
+                if (storageError) console.error(`   ⚠️ Erro Storage:`, storageError.message);
+            }
+        }
+
+        // 2. Deletar do Banco
+        const { error: dbError } = await supabase.from(table).delete().eq('id', id);
+        if (dbError) throw dbError;
+
+        res.json({ message: 'Item e arquivo removidos com sucesso.' });
+    } catch (err) {
+        console.error('❌ Erro ao deletar item:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Resetar Dados de forma granular (Banco + Storage)
 app.delete('/api/clear-data', async (req, res) => {
     const { municipio_id, modulo, municipio_nome, delete_storage } = req.query;
@@ -146,7 +181,8 @@ app.delete('/api/clear-data', async (req, res) => {
 
         // 1. Limpar Storage (se solicitado)
         if (delete_storage === 'true') {
-            const { data: files, error: listError } = await supabase.storage.from(bucket).list(folderPath);
+            // Lista arquivos recursivamente
+            const { data: files, error: listError } = await supabase.storage.from(bucket).list(folderPath, { limit: 1000 });
             
             if (listError) {
                 console.error(`⚠️ Erro ao listar arquivos para deletar:`, listError.message);

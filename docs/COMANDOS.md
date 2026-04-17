@@ -18,7 +18,9 @@ Comandos para manter o código seguro no GitHub:
 - **Verificar status:** `git status`
 - **Adicionar mudanças:** `git add .`
 - **Criar backup (Commit):** `git commit -m "Explicação da mudança aqui"`
-- **Enviar para nuvem:** `git push origin main`
+- **Enviar para nuvem (Upload):** `git push origin main`
+- **Baixar atualizações (Download):** `git pull`
+- **Buscar mudanças remotas:** `git fetch`
 
 ## 🧠 Gestão de IA Skills (Antigravity Kit)
 

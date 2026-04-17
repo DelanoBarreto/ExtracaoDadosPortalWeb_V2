@@ -35,6 +35,9 @@ async function extrairDetalhesLRF(pageUrl) {
         const { data: html } = await axios.get(pageUrl, { timeout: 15000 });
         const $ = cheerio.load(html);
 
+        // Removendo scripts e estilos para não sujar a extração de texto
+        $('script, style').remove();
+
         // Título: H1 ou H2 que não seja de avaliação de satisfação
         let titulo = '';
         $('h1, h2').each((i, el) => {
@@ -44,24 +47,51 @@ async function extrairDetalhesLRF(pageUrl) {
             }
         });
 
-        // Metadados via texto da página
-        const bodyText = $('body').text();
+        // Metadados via texto da página (Aracati/Assesi Style)
         let dataOriginal = null;
         let competencia = null;
 
-        // Extraindo metadados verificando blocos de texto
-        $('div, p, span, li, strong').parent().each((i, el) => {
-            const txt = $(el).text().replace(/\s+/g, ' ').trim();
-            
-            const dataMatch = txt.match(/Data:\s*([\d\/]+)/i);
-            if (dataMatch && !dataOriginal) dataOriginal = dataMatch[1];
+        // Estratégia 1: Buscar labels específicos e seus textos adjacentes
+        $('div, p, span, strong, b').each((i, el) => {
+            const $el = $(el);
+            const txt = $el.text().trim();
 
-            const compMatch = txt.match(/(?:Compet[eê]ncia|Exerc[ií]cio|Refer[eê]ncia|Ano):\s*([0-9a-zA-ZáéíóúÁÉÍÓÚçÇ\/\s\-]+)/i);
-            if (compMatch && !competencia) {
-               const c = compMatch[1].trim();
-               if (c && c.toLowerCase() !== 'aguardando') competencia = c;
+            // DATA
+            if (/^DATA:\s*$/i.test(txt) || /^DATA:$/i.test(txt)) {
+                const val = $el.next().text().trim();
+                if (val && !dataOriginal) dataOriginal = val;
+            } else if (txt.match(/^DATA:\s*[\d\/]+/i)) {
+                dataOriginal = dataOriginal || txt.split(/DATA:\s*/i)[1].split(/\s/)[0].trim();
+            }
+
+            // COMPETÊNCIA
+            if (/^COMPET[EÊ]NCIA:\s*$/i.test(txt) || /^COMPET[EÊ]NCIA:$/i.test(txt)) {
+                let val = $el.next().text().trim();
+                if (val && !competencia) competencia = val.split(/Detalhes|Relat[oó]rio/i)[0].trim();
+            } else if (txt.match(/^COMPET[EÊ]NCIA:\s*/i)) {
+                let val = txt.split(/COMPET[EÊ]NCIA:\s*/i)[1].trim();
+                competencia = competencia || val.split(/Detalhes|Relat[oó]rio/i)[0].split('.')[0].trim();
             }
         });
+
+        // Estratégia 2: Fallback via busca em blocos (caso a Estratégia 1 falhe)
+        if (!competencia || !dataOriginal) {
+            $('div, p, span, li, strong').each((i, el) => {
+                const txt = $(el).text().replace(/\s+/g, ' ').trim();
+                
+                if (!dataOriginal) {
+                    const dataMatch = txt.match(/Data:\s*([\d\/]+)/i);
+                    if (dataMatch) dataOriginal = dataMatch[1];
+                }
+
+                if (!competencia) {
+                    const compMatch = txt.match(/(?:Compet[eê]ncia|Exerc[ií]cio|Refer[eê]ncia|Ano):\s*([^\n\r\t]{3,60})/i);
+                    if (compMatch) {
+                        competencia = compMatch[1].split(/Detalhes|Relat[oó]rio|Clique/i)[0].split('.')[0].trim();
+                    }
+                }
+            });
+        }
 
         // Ano extraído da competência ou data
         let ano = null;
@@ -114,75 +144,103 @@ async function rasparLRF() {
 
         if (!municipio) throw new Error('Município não encontrado no banco.');
 
-        for (const cat of CATEGORIAS) {
-            console.log(`\n📂 Categoria: ${cat.nome} (cat=${cat.id})`);
-            const urlLista = `${BASE_URL}/lrf.php?cat=${cat.id}`;
-            const { data: html } = await axios.get(urlLista, { timeout: 15000 });
-            const $ = cheerio.load(html);
+        const linksProcessados = new Set();
+        let itemsSaved = 0;
+        const effectiveLimit = limit === 0 ? Infinity : limit;
+        let currentPage = 0;
+        let lastHtmlHash = '';
 
-            // Coleta IDs únicos de documentos da lista
-            const idsSet = new Set();
-            $('a[href*="lrf.php?id="]').each((i, el) => {
-                const href = $(el).attr('href');
+        while (itemsSaved < effectiveLimit) {
+            const urlComPagina = currentPage === 0 
+                ? `${BASE_URL}/lrf.php`
+                : `${BASE_URL}/lrf.php?pagina=${currentPage}`;
+            
+            console.log(`\n📄 [PÁGINA ${currentPage + 1}] Lendo: ${urlComPagina}`);
+            
+            const { data: pageHtml } = await axios.get(urlComPagina, { timeout: 15000 });
+            
+            // Verifica se a página é a mesma da anterior (evita loop em sites sem paginação real)
+            const currentHash = pageHtml.substring(0, 500) + pageHtml.length;
+            if (currentPage > 0 && currentHash === lastHtmlHash) {
+                console.log('   🏁 O portal retornou o mesmo conteúdo da página anterior. Encerrando busca.');
+                break;
+            }
+            lastHtmlHash = currentHash;
+
+            const $page = cheerio.load(pageHtml);
+
+            // Coleta IDs de TODA a página (incluindo abas de anos escondidas)
+            const pageIds = [];
+            $page('a[href*="lrf.php?id="]').each((i, el) => {
+                const href = $page(el).attr('href');
                 const id = href?.match(/id=(\d+)/)?.[1];
-                if (id) idsSet.add(id);
+                if (id && !linksProcessados.has(id)) {
+                    linksProcessados.add(id);
+                    pageIds.push(id);
+                }
             });
 
-            // Aplica limite se definido, senão coleta todos
-            const ids = limit > 0 ? Array.from(idsSet).slice(0, limit) : Array.from(idsSet);
-            console.log(`   🔎 Encontrados ${idsSet.size} documentos. Processando os ${ids.length} primeiros${limit > 0 ? ` (limite de ${limit})` : ' (todos)'}.`);
+            if (pageIds.length === 0) {
+                console.log('   🏁 Nenhum documento novo encontrado nesta página.');
+                break;
+            }
 
-            for (const id of ids) {
+            console.log(`   🔎 Encontrados ${pageIds.length} documentos únicos na página.`);
+
+            for (const id of pageIds) {
+                if (itemsSaved >= effectiveLimit) break;
+                
                 const pageUrl = `${BASE_URL}/lrf.php?id=${id}`;
-
+                console.log(`\n⏳ [${pageIds.indexOf(id) + 1}/${pageIds.length}] Analisando documentação: ${pageUrl}`);
+                
                 const detalhes = await extrairDetalhesLRF(pageUrl);
                 if (!detalhes) {
-                    console.log(`   ⚠️ ID ${id}: sem PDFs detectados. Pulando.`);
+                    console.log(`   ⚠️ Sem detalhes ou PDFs. Pulando.`);
                     continue;
                 }
 
-                const { pdfUrls, titulo, dataPublicacao, ano, competencia } = detalhes;
-                const total = pdfUrls.length;
+                const { titulo, dataPublicacao, ano, competencia, pdfUrls } = detalhes;
 
-                if (total > 1) {
-                    console.log(`   📑 ID ${id}: "${titulo}" → ${total} partes.`);
-                } else {
-                    console.log(`   📄 ID ${id}: "${titulo}"`);
-                }
+                // Tenta extrair o tipo (categoria) do título
+                let tipoDetetado = 'LRF';
+                if (titulo.includes(' - ')) {
+                    tipoDetetado = titulo.split(' - ')[0].trim();
+                } else if (titulo.includes('RREO')) tipoDetetado = 'RREO';
+                else if (titulo.includes('RGF')) tipoDetetado = 'RGF';
+                else if (titulo.includes('LOA')) tipoDetetado = 'LOA';
+                else if (titulo.includes('LDO')) tipoDetetado = 'LDO';
+                else if (titulo.includes('PPA')) tipoDetetado = 'PPA';
 
+                let algumNovoSalvo = false;
                 for (let i = 0; i < pdfUrls.length; i++) {
                     const pdfUrl = pdfUrls[i];
-
-                    // Deduplicação: verifica pelo URL físico do arquivo
+                    
+                    // Deduplicação robusta: Verifica se este PDF já foi processado
                     const { data: existe } = await supabase
                         .from('tab_lrf')
                         .select('id')
-                        .eq('url_original', pdfUrl)
+                        .ilike('url_original', `${pdfUrl}%`)
                         .maybeSingle();
 
                     if (existe) {
-                        console.log(`      ⏭️ Parte ${i + 1}/${total}: já no banco. Pulando.`);
+                        console.log(`   ⏭️ Arquivo ${i+1}/${pdfUrls.length} já cadastrado. Pulando.`);
                         continue;
                     }
 
-                    const tituloDoc = total > 1 ? `${titulo} (Parte ${i + 1}/${total})` : titulo;
-                    console.log(`   📥 ${tituloDoc}`);
+                    console.log(`   ✨ NOVO PDF detectado. Iniciando processamento...`);
+                    const totalPartes = pdfUrls.length;
+                    const tituloDoc = totalPartes > 1 ? `${titulo} (Parte ${i + 1}/${totalPartes})` : titulo;
 
-                    // uploadPDF retorna array de { storageUrl, urlOriginal }
-                    // Passamos a pasta dinâmica: Aracati/LRF
+                    // Upload via scraper-service
                     const folderPath = `${MUNICIP_NOME}/LRF`;
                     const partes = await scraperService.uploadPDF(pdfUrl, 'arquivos_municipais', folderPath);
 
-                    if (partes.length === 0) {
-                        console.log(`      ❌ Upload falhou completamente. Pulando.`);
-                        continue;
-                    }
+                    if (partes.length === 0) continue;
 
                     for (let p = 0; p < partes.length; p++) {
                         const { storageUrl, urlOriginal: urlParteOriginal } = partes[p];
                         const uploadsTotal = partes.length;
 
-                        // Título diferenciado quando o scraper dividiu por tamanho
                         const tituloFinal = uploadsTotal > 1
                             ? `${tituloDoc} [Upload ${p + 1}/${uploadsTotal}]`
                             : tituloDoc;
@@ -195,14 +253,27 @@ async function rasparLRF() {
                             data_publicacao: dataPublicacao,
                             arquivo_url: storageUrl,
                             url_original: urlParteOriginal,
-                            tipo: cat.nome
+                            tipo: tipoDetetado
                         });
+                        algumNovoSalvo = true;
                     }
                 }
+
+                if (algumNovoSalvo) {
+                    console.log('   ✅ Novas partes salvas no Supabase!');
+                    itemsSaved++;
+                }
+            }
+
+            currentPage++;
+            // Segurança: evitar loops infinitos (máximo 50 páginas)
+            if (currentPage >= 50 && effectiveLimit !== Infinity) {
+                console.log('   ⚠️ Teto de 50 páginas atingido. Encerrando por segurança.');
+                hasMorePages = false;
             }
         }
 
-        console.log('\n🏁 Raspagem de LRF finalizada!');
+        console.log(`\n🏁 Raspagem de LRF concluída! Total de novos documentos: ${itemsSaved}`);
     } catch (err) {
         console.error('❌ Erro fatal:', err.message);
         process.exit(1);
