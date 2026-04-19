@@ -3,9 +3,7 @@ const cheerio = require('cheerio');
 const { supabase } = require('./src/lib/supabase-bot');
 const scraperService = require('./src/services/scraper-service');
 
-// Configurações
-const MUNICIP_NOME = 'Aracati';
-const BASE_URL = 'https://aracati.ce.gov.br';
+
 
 const CATEGORIAS = [
     { id: 4,  nome: 'RGF'  },
@@ -30,7 +28,7 @@ function formatarData(dataPt) {
  * Um documento pode ter múltiplos arquivos PDF (partes) quando muito grande.
  * Retorna null se a página não tiver PDF.
  */
-async function extrairDetalhesLRF(pageUrl) {
+async function extrairDetalhesLRF(pageUrl, currentUrlBase) {
     try {
         const { data: html } = await axios.get(pageUrl, { timeout: 15000 });
         const $ = cheerio.load(html);
@@ -105,7 +103,7 @@ async function extrairDetalhesLRF(pageUrl) {
             if (!href) return;
             const fullUrl = href.startsWith('http')
                 ? href
-                : `${BASE_URL}${href.startsWith('/') ? '' : '/'}${href}`;
+                : `${currentUrlBase}${href.startsWith('/') ? '' : '/'}${href}`;
             if (fullUrl.toLowerCase().includes('.pdf')) {
                 pdfUrlsSet.add(fullUrl);
             }
@@ -132,18 +130,37 @@ async function rasparLRF() {
     const limitArg = args.find(a => a.startsWith('--limit='));
     const limit = limitArg ? parseInt(limitArg.split('=')[1], 10) : 20;
 
-    console.log(`\n🚀 Iniciando raspagem de LRF | Limite: ${limit === 0 ? 'ILIMITADO' : limit} | Município: ${MUNICIP_NOME}...`);
+    // Novos argumentos para tornar o scraper dinâmico
+    const idArg = args.find(a => a.startsWith('--municipio_id='));
+    const urlArg = args.find(a => a.startsWith('--url_base='));
+    const nomeArg = args.find(a => a.startsWith('--municipio_nome='));
+
+    let municipioId = idArg ? idArg.split('=')[1] : null;
+    let urlBase = urlArg ? urlArg.split('=')[1].replace(/"/g, '') : null;
+    let municipioNome = nomeArg ? nomeArg.split('=')[1].replace(/"/g, '') : 'Desconhecido';
+
+    // Fallback para Aracati se nada for passado (compatibilidade)
+    if (!municipioId || !urlBase) {
+        console.log('⚠️ Parâmetros de município não fornecidos. Buscando fallback: Aracati...');
+        const { data: fallback } = await supabase
+            .from('tab_municipios')
+            .select('*')
+            .eq('nome', 'Aracati')
+            .single();
+        
+        if (fallback) {
+            municipioId = fallback.id;
+            urlBase = fallback.url_base;
+            municipioNome = fallback.nome;
+        } else {
+            console.error('❌ Falha crítica: Nenhum município identificado para raspagem.');
+            return;
+        }
+    }
+
+    console.log(`\n🚀 Iniciando LRF | Município: ${municipioNome} | Limite: ${limit === 0 ? 'ILIMITADO' : limit}...`);
 
     try {
-        // Pega o ID do município
-        const { data: municipio } = await supabase
-            .from('tab_municipios')
-            .select('id')
-            .eq('nome', MUNICIP_NOME)
-            .single();
-
-        if (!municipio) throw new Error('Município não encontrado no banco.');
-
         const linksProcessados = new Set();
         let itemsSaved = 0;
         const effectiveLimit = limit === 0 ? Infinity : limit;
@@ -152,8 +169,8 @@ async function rasparLRF() {
 
         while (itemsSaved < effectiveLimit) {
             const urlComPagina = currentPage === 0 
-                ? `${BASE_URL}/lrf.php`
-                : `${BASE_URL}/lrf.php?pagina=${currentPage}`;
+                ? `${urlBase}/lrf.php`
+                : `${urlBase}/lrf.php?pagina=${currentPage}`;
             
             console.log(`\n📄 [PÁGINA ${currentPage + 1}] Lendo: ${urlComPagina}`);
             
@@ -190,10 +207,10 @@ async function rasparLRF() {
             for (const id of pageIds) {
                 if (itemsSaved >= effectiveLimit) break;
                 
-                const pageUrl = `${BASE_URL}/lrf.php?id=${id}`;
-                console.log(`\n⏳ [${pageIds.indexOf(id) + 1}/${pageIds.length}] Analisando documentação: ${pageUrl}`);
+                const pageUrl = `${urlBase}/lrf.php?id=${id}`;
+                console.log(`\n⏳ [${itemsSaved + 1}/${effectiveLimit}] Analisando documentação: ${pageUrl}`);
                 
-                const detalhes = await extrairDetalhesLRF(pageUrl);
+                const detalhes = await extrairDetalhesLRF(pageUrl, urlBase);
                 if (!detalhes) {
                     console.log(`   ⚠️ Sem detalhes ou PDFs. Pulando.`);
                     continue;
@@ -232,7 +249,7 @@ async function rasparLRF() {
                     const tituloDoc = totalPartes > 1 ? `${titulo} (Parte ${i + 1}/${totalPartes})` : titulo;
 
                     // Upload via scraper-service
-                    const folderPath = `${MUNICIP_NOME}/LRF`;
+                    const folderPath = `${municipioNome}/LRF`;
                     const partes = await scraperService.uploadPDF(pdfUrl, 'arquivos_municipais', folderPath);
 
                     if (partes.length === 0) continue;
@@ -246,7 +263,7 @@ async function rasparLRF() {
                             : tituloDoc;
 
                         await scraperService.salvarLRF({
-                            municipio_id: municipio.id,
+                            municipio_id: municipioId,
                             titulo: tituloFinal,
                             ano,
                             competencia,

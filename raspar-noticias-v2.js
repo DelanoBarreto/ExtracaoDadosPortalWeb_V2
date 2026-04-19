@@ -15,52 +15,124 @@ function formatarData(dataPt) {
 
 async function extrairDetalhesNoticia(url) {
   try {
-    const { data: html } = await axios.get(url);
+    const { data: html } = await axios.get(url, { 
+      timeout: 15000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    });
     const $ = cheerio.load(html);
     
-    // Título real do H1
-    const titulo = $('h1').first().text().trim().replace(/Qual o seu nível de satisfação.*/g, '').trim();
+    // LIMPEZA INICIAL - Remover elementos globais de navegação e ruído
+    $('header, footer, nav, aside, .sidebar, #sidebar, .breadcrumb, .breadcrumbs, .navigation, .area-avaliacao, #form_aval_informa, .area-comentarios, .links-sociais, .print-download, script, style, .LinkInforma3, .type-link1, .area-mais-lidas, .relacionadas, #speak, #speak_text, [id^="speak"]').remove();
     
-    // Extrações refinadas: Autor, Catálogo (Tag) e Acessos (Visualizações)
-    // O html tem um span com id="quantinforma", tag bi-tag-fill, e bi-person-circle
-    const autor = $('.bi-person-circle').parent().text().match(/Por\s+(.*?)\s+\d{2}\//)?.[1]?.trim() || 'Prefeitura de Aracati';
-    const categoria = $('.bi-tag-fill').parent().text().trim() || '#Geral';
-    const acessosText = $('#quantinforma').text().trim() || '0';
-    const acessos = parseInt(acessosText, 10);
-    
-    // Data via Regex (procura padrão 00/00/0000 no texto)
-    const corpoTexto = $('body').text();
-    const matchData = corpoTexto.match(/(\d{2}\/\d{2}\/\d{4})/);
-    const dataPublicacao = matchData ? formatarData(matchData[0]) : null;
+    // 1. EXTRAÇÃO DE TÍTULO
+    let titulo = $('.TitleInforma-detalhe').first().text().trim();
+    if (!titulo) titulo = $('h1').first().text().trim();
+    titulo = titulo.replace(/Qual o seu nível de satisfação.*/gi, '').trim();
 
-    // Conteúdo (Geralmente está dentro de uma div container que não é o menu)
-    // Vamos pegar o texto principal removendo scripts e menus conhecidos
-    $('script, style, nav, footer, header').remove();
-    
-    let conteudo = '';
-    $('div').each((i, el) => {
-        const txt = $(el).children().length === 0 ? $(el).text().trim() : '';
-        if (txt.length > 200 && !conteudo) {
-            conteudo = txt;
-        }
-    });
+    // 2. EXTRAÇÃO DE METADADOS
+    let autor = 'Prefeitura';
+    let categoria = 'Geral';
+    let dataPublicacao = null;
 
-    // Fallback
-    if (!conteudo) {
-        conteudo = $('main').text().trim() || $('article').text().trim() || 'Conteúdo não identificado';
+    const metaContainer = $('.fa-user').parent();
+    const metaLine = metaContainer.text().replace(/\s+/g, ' ').trim();
+    
+    // Data
+    const dataMatch = metaLine.match(/(\d{2}\/\d{2}\/\d{4})/);
+    if (dataMatch) dataPublicacao = formatarData(dataMatch[0]);
+
+    // Autor
+    const autorMatch = metaLine.match(/Por\s+(.*?)(?=\s\d{2}\/\d{2}|$|#)/i);
+    if (autorMatch) autor = autorMatch[1].trim();
+
+    // Categoria
+    // Tenta primeiro capturar o texto da hashtag no metaLine
+    const catMatch = metaLine.match(/#(\w+)/);
+    if (catMatch) categoria = catMatch[1];
+    
+    // Se ainda for Geral, tenta olhar se há um link de categoria
+    if (categoria === 'Geral') {
+        const linkCat = $('.fa-tag').parent().text().trim();
+        if (linkCat) categoria = linkCat.replace('#', '');
     }
 
-    // Limpeza de Espaços em Branco (evita múltiplos parágrafos puros vazios)
-    conteudo = conteudo.replace(/(\n\s*){2,}/g, '\n\n').trim();
+    if (autor === 'Prefeitura' || autor.toLowerCase() === 'pre.') {
+      const bAutor = $('.bi-person-circle').parent().text().match(/Por\s+(.*?)\s+\d{2}\//)?.[1]?.trim();
+      if (bAutor) autor = bAutor;
+    }
+    if (!dataPublicacao) {
+      const matchData = $('body').text().match(/(\d{2}\/\d{2}\/\d{4})/);
+      dataPublicacao = matchData ? formatarData(matchData[0]) : null;
+    }
+
+    // 3. EXTRAÇÃO DE RESUMO E CONTEÚDO
+    // No padrão Assesi, o resumo é o SubtitleInforma-detalhe ou o og:description
+    let resume = $('.SubtitleInforma-detalhe').first().text().trim();
+    
+    if (!resume || resume.length < 10) {
+        resume = $('meta[property="og:description"]').attr('content') || '';
+    }
+
+    if (!resume || resume.length < 10) {
+        resume = $('meta[name="description"]').attr('content') || '';
+    }
+
+    // Se ainda não achou, tenta pegar o texto logo após o título
+    if (!resume || resume.length < 10) {
+        resume = $('.TitleInforma-detalhe').first().next('p, div').text().trim();
+    }
+
+    let coreContent = '';
+    // .p-info é comum no Assesi para o conteúdo real
+    const contentSelectors = ['#Noticia > div:nth-child(3) > div > div > div.p-info', '.p-info', '.TextoInforma-detalhe', '.NoticiaInnerBody', '.noticia-texto', '.entry-content', 'article'];
+    
+    for (const sel of contentSelectors) {
+      const el = $(sel).clone();
+      
+      // REMOÇÃO DE RUÍDO ESPECÍFICO (Sidebar, links relacionados, etc.)
+      el.find('.LinkInforma3, .type-link1, .sidebar, aside, .area-mais-lidas, .relacionadas, .newsletter, .tags').remove();
+      
+      // Remove elementos de UI, títulos repetidos e metadados dentro do corpo
+      // Removemos speak_text e qualquer div de suporte à acessibilidade que duplique o texto
+      el.find('h1, h2, h3, .TitleInforma-detalhe, .SubtitleInforma-detalhe, .links-sociais, .area-avaliacao, .fa-user, .fa-calendar, .fa-eye, #speak, #speak_text, #btn-ouvir, [id^="speak"]').remove();
+      
+      let txt = el.text().trim();
+      
+      // Se o texto começar com o título da notícia, removemos essa repetição
+      if (txt.toLowerCase().startsWith(titulo.toLowerCase())) {
+          txt = txt.substring(titulo.length).trim();
+      }
+
+      // O conteúdo real deve ser substancial. 
+      if (txt.length > 50 && !txt.includes('Início') && txt.length > (resume.length / 2)) {
+        coreContent = txt;
+        break;
+      }
+    }
+
+    // Caso de notícia sem descrição detalhada (como o exemplo #84)
+    if (!coreContent || coreContent.length < 50) {
+        coreContent = 'Sem descrição detalhada.';
+    }
+
+    coreContent = coreContent.replace(/(\n\s*){2,}/g, '\n\n').trim();
+    
+    // Limpeza final de ruído de navegação no início do conteúdo
+    coreContent = coreContent.replace(/^(Início|Notícias|NOTÍCIAS|Detalhe)\s+\d{2}[-/][A-Z]{3}[-/]\d{4}\s+/gi, '');
+    coreContent = coreContent.replace(/^(Início|Notícias|NOTÍCIAS|Detalhe)\s+/gi, '');
+
+    resume = resume.replace(/\n/g, ' ').trim();
 
     return { 
         titulo, 
         dataPublicacao, 
-        conteudo: conteudo.substring(0, 5000), // Limite de segurança
-        resumo: conteudo.substring(0, 200).replace(/\n/g, ' ') + '...',
+        conteudo: coreContent.substring(0, 5000),
+        resumo: resume.substring(0, 500),
         autor,
         categoria,
-        acessos: isNaN(acessos) ? 0 : acessos
+        acessos: 0 
     };
   } catch (err) {
     console.error(`⚠️ Erro ao detalhar ${url}:`, err.message);
@@ -73,23 +145,46 @@ async function rasparNoticiasV2() {
   const limitArg = args.find(a => a.startsWith('--limit='));
   const limit = limitArg ? parseInt(limitArg.split('=')[1], 10) : 20;
 
-  console.log(`🚀 Iniciando raspagem de NOTICIAS (Motor v2) | Limite: ${limit === 0 ? 'ILIMITADO' : limit}...`);
+  // Novos argumentos para tornar o scraper dinâmico
+  const idArg = args.find(a => a.startsWith('--municipio_id='));
+  const urlArg = args.find(a => a.startsWith('--url_base='));
+  const nomeArg = args.find(a => a.startsWith('--municipio_nome='));
 
-  const { data: municipio } = await supabase
-    .from('tab_municipios')
-    .select('*')
-    .eq('nome', 'Aracati')
-    .single();
+  let municipioId = idArg ? idArg.split('=')[1] : null;
+  let urlBase = urlArg ? urlArg.split('=')[1].replace(/"/g, '') : null;
+  // Normaliza URL base para remover barra final se existir (ajuda na classe URL)
+  if (urlBase) urlBase = urlBase.replace(/\/$/, '');
+  let municipioNome = nomeArg ? nomeArg.split('=')[1].replace(/"/g, '') : 'Desconhecido';
 
-  if (!municipio) {
-    console.error('❌ Município não encontrado no banco.');
-    return;
+  // Fallback para Aracati se nada for passado (compatibilidade)
+  if (!municipioId || !urlBase) {
+    console.log('⚠️ Parâmetros de município não fornecidos. Buscando fallback: Aracati...');
+    const { data: fallback } = await supabase
+      .from('tab_municipios')
+      .select('*')
+      .eq('nome', 'Aracati')
+      .single();
+    
+    if (fallback) {
+      municipioId = fallback.id;
+      urlBase = fallback.url_base.replace(/\/$/, '');
+      municipioNome = fallback.nome;
+    } else {
+      console.error('❌ Falha crítica: Nenhum município identificado para raspagem.');
+      return;
+    }
   }
 
-  const urlLista = `${municipio.url_base}/informa.php`;
+  console.log(`🚀 Iniciando NOTICIAS | Município: ${municipioNome} | Limite: ${limit === 0 ? 'ILIMITADO' : limit}...`);
+
+  const urlLista = `${urlBase}/informa.php`;
 
   try {
-    const { data: html } = await axios.get(urlLista);
+    const { data: html } = await axios.get(urlLista, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    });
     const $ = cheerio.load(html);
     
     const linksProcessados = new Set();
@@ -102,20 +197,31 @@ async function rasparNoticiasV2() {
       const urlComPagina = currentPage === 0 ? urlLista : `${urlLista}?pagina=${currentPage}`;
       console.log(`\n📄 [PÁGINA ${currentPage + 1}] Lendo links de: ${urlComPagina}`);
       
-      const { data: pageHtml } = await axios.get(urlComPagina);
+      const { data: pageHtml } = await axios.get(urlComPagina, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+      });
       const $page = cheerio.load(pageHtml);
       
       const pageItems = [];
       $page('a[href*="/informa/"]').each((i, el) => {
         const link = $page(el).attr('href');
         const img = $page(el).find('img').attr('src');
-        const urlCompleta = link.startsWith('http') ? link : `${municipio.url_base}/${link.replace(/^\//, '')}`;
+        
+        // Uso da classe URL para evitar barras duplas e erros de caminho relativo
+        let urlCompleta;
+        try {
+          urlCompleta = new URL(link, urlBase).href;
+        } catch (e) {
+          urlCompleta = link.startsWith('http') ? link : `${urlBase}${link.startsWith('/') ? '' : '/'}${link}`;
+        }
 
         if (!linksProcessados.has(urlCompleta)) {
           linksProcessados.add(urlCompleta);
           pageItems.push({
             url: urlCompleta,
-            imagemOriginal: img ? (img.startsWith('http') ? img : `${municipio.url_base}/${img.replace(/^\//, '')}`) : null
+            imagemOriginal: img ? (img.startsWith('http') ? img : `${urlBase}/${img.replace(/^\//, '')}`) : null
           });
         }
       });
@@ -126,7 +232,7 @@ async function rasparNoticiasV2() {
         break;
       }
 
-      console.log(`   🔎 Encontrados ${pageItems.length} links na página. Verificando novidades...`);
+      console.log(`   🔎 [${itemsSaved + 1}/${effectiveLimit}] Encontrados ${pageItems.length} links na página. Verificando novidades...`);
 
       for (const item of pageItems) {
         if (itemsSaved >= effectiveLimit) break;
@@ -139,22 +245,27 @@ async function rasparNoticiasV2() {
           .maybeSingle();
 
         if (existente) {
-          console.log(`   ⏭️ [${pageItems.indexOf(item) + 1}/${pageItems.length}] Já cadastrado. Pulando.`);
+          console.log(`   ⏭️ [${itemsSaved + 1}/${effectiveLimit}] Já cadastrado. Pulando.`);
           continue;
         }
 
-        console.log(`   ✨ [${pageItems.indexOf(item) + 1}/${pageItems.length}] NOVO ITEM DETECTADO. Processando...`);
+        console.log(`   ✨ [${itemsSaved + 1}/${effectiveLimit}] NOVO ITEM DETECTADO: ${item.url}`);
         const detalhes = await extrairDetalhesNoticia(item.url);
         if (!detalhes) continue;
 
+        console.log(`      📝 Título: ${detalhes.titulo}`);
+        console.log(`      📅 Data: ${detalhes.dataPublicacao}`);
+        console.log(`      👤 Autor: ${detalhes.autor}`);
+        console.log(`      👁️  Acessos: ${detalhes.acessos}`);
+
         let novaImagemUrl = null;
         if (item.imagemOriginal) {
-          const folderPath = `${municipio.nome}/noticias`;
+          const folderPath = `${municipioNome}/noticias`;
           novaImagemUrl = await scraperService.uploadMedia(item.imagemOriginal, 'arquivos_municipais', folderPath);
         }
 
         const sucesso = await scraperService.salvarNoticia({
-          municipio_id: municipio.id,
+          municipio_id: municipioId,
           titulo: detalhes.titulo,
           url_original: item.url,
           imagem_url: novaImagemUrl,
