@@ -130,7 +130,8 @@ async function rasparSecretarias() {
                 endereco,
                 url_origem,
                 foto_url,
-                exercicio: new Date().getFullYear()
+                exercicio: new Date().getFullYear(),
+                status: 'rascunho'
             };
 
             if (existing) {

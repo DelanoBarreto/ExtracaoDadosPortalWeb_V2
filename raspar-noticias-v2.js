@@ -274,7 +274,8 @@ async function rasparNoticiasV2() {
           data_publicacao: detalhes.dataPublicacao,
           autor: detalhes.autor,
           categoria: detalhes.categoria,
-          acessos: detalhes.acessos
+          acessos: detalhes.acessos,
+          status: 'rascunho'
         });
 
         if (sucesso) {

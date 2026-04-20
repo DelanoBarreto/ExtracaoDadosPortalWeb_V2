@@ -295,6 +295,27 @@ app.put('/api/items', async (req, res) => {
     }
 });
 
+// Atualizar status em lote (Bulk status update)
+app.put('/api/items/status', async (req, res) => {
+    const { ids, table, status } = req.body;
+
+    if (!ids || !table || !status) {
+        return res.status(400).json({ error: 'Faltam parâmetros: ids, table, status' });
+    }
+
+    try {
+        console.log(`✏️ Atualizando status de ${ids.length} itens na tabela ${table} para '${status}'...`);
+        const { error } = await supabase.from(table).update({ status }).in('id', ids);
+        if (error) throw error;
+
+        console.log(`✅ Status atualizado com sucesso para ${ids.length} itens.`);
+        res.json({ message: 'Status atualizado com sucesso.' });
+    } catch (err) {
+        console.error('❌ Erro ao atualizar status:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Ler Logs
 app.get('/api/logs', (req, res) => {
     if (fs.existsSync(logFile)) {

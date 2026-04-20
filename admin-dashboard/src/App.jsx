@@ -6,20 +6,22 @@ import {
   CheckCircle2, Terminal, FileDown, Building2, Menu, X, Info,
   BarChart3, Database, HardDrive, ChevronDown, Plus, Link,
   Gavel, ScrollText, BookMarked, BookOpen, Globe, Pencil, Eye,
-  ArrowUpDown, ArrowUp, ArrowDown, User, Phone, Mail
+  ArrowUpDown, ArrowUp, ArrowDown, User, Phone, Mail, ArrowLeft, 
+  ListChecks, Bold, Italic, List, ListOrdered, Underline, Eraser, 
+  Image as ImageIcon, Link as LinkIcon
 } from 'lucide-react';
 
 const API_BASE = 'http://localhost:3001/api';
 
 // ─── Module Definitions ──────────────────────────────────────────────────────
 const MODULES = [
-  { id: 'noticias',    label: 'Notícias',        icon: Newspaper,   apiTable: 'noticias',    ready: true  },
-  { id: 'lrf',         label: 'LRF',             icon: FileText,    apiTable: 'lrf',         ready: true  },
-  { id: 'secretarias', label: 'Secretarias',     icon: Building2,   apiTable: 'secretarias', ready: true  },
-  { id: 'decretos',    label: 'Decretos',        icon: Gavel,       apiTable: null,          ready: false },
-  { id: 'leis',        label: 'Leis',            icon: ScrollText,  apiTable: null,          ready: false },
-  { id: 'portarias',   label: 'Portarias',       icon: BookMarked,  apiTable: null,          ready: false },
-  { id: 'atas',        label: 'Atas de Câmara',  icon: BookOpen,    apiTable: null,          ready: false },
+  { id: 'noticias', label: 'Notícias', icon: Newspaper, apiTable: 'noticias', ready: true },
+  { id: 'lrf', label: 'LRF', icon: FileText, apiTable: 'lrf', ready: true },
+  { id: 'secretarias', label: 'Secretarias', icon: Building2, apiTable: 'secretarias', ready: true },
+  { id: 'decretos', label: 'Decretos', icon: Gavel, apiTable: null, ready: false },
+  { id: 'leis', label: 'Leis', icon: ScrollText, apiTable: null, ready: false },
+  { id: 'portarias', label: 'Portarias', icon: BookMarked, apiTable: null, ready: false },
+  { id: 'atas', label: 'Atas de Câmara', icon: BookOpen, apiTable: null, ready: false },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -120,138 +122,268 @@ function NewMunicipioModal({ onClose, onCreated }) {
   );
 }
 
-// ─── EditItemModal ────────────────────────────────────────────────────────────
+// ─── FullScreenEditor (v2 Silent Interface) ────────────────────────────────────────────────────────────
+function FullScreenEditor({ item, module: mod, onClose, onSave, onDelete }) {
+  const [form, setForm] = useState(() => ({
+    ...item,
+    titulo: item.titulo || item.nome_secretaria || "",
+    resumo: item.resumo || "",
+    conteudo: item.conteudo || "",
+    autor: item.autor || "",
+    ano: item.ano || new Date().getFullYear(),
+    data_exercicio: item.data_exercicio || (item.data_publicacao ? item.data_publicacao.split('T')[0] : new Date().toISOString().split("T")[0]),
+    fonte: item.fonte || item.link_original || item.url_original || "",
+    status: item.status || "rascunho",
+    categorias: item.categorias || ["Defesa Civil", "Educação"], // Mock default tags
+    visualizacoes: item.visualizacoes || item.acessos || 0,
+    criado_em: item.criado_em || item.created_at || new Date().toISOString(),
+    atualizado_em: item.atualizado_em || item.updated_at || new Date().toISOString()
+  }));
 
-function EditItemModal({ item, module: mod, onClose, onSave }) {
-  const buildInitialForm = () => {
-    const formatDateForInput = (val) => {
-      if (!val) return '';
-      return val.split('T')[0];
-    };
+  const [saving, setSaving] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const contentRef = useRef(null);
 
-    if (mod === 'secretarias') return {
-      nome_secretaria:     item.nome_secretaria    || '',
-      nome_responsavel:    item.nome_responsavel   || '',
-      cargo_responsavel:   item.cargo_responsavel  || '',
-      email:               item.email              || '',
-      telefone:            item.telefone           || '',
-      endereco:            item.endereco           || '',
-      horario_atendimento: item.horario_atendimento || '',
-      exercicio:           item.exercicio          || new Date().getFullYear(),
-      data_publicacao:     formatDateForInput(item.data_publicacao),
-    };
-    if (mod === 'lrf') return {
-      titulo:           item.titulo           || '',
-      competencia:      item.competencia      || '',
-      ano:              item.ano              || '',
-      data_publicacao:  formatDateForInput(item.data_publicacao),
-    };
-    // noticias
-    return {
-      titulo:          item.titulo          || '',
-      data_publicacao: formatDateForInput(item.data_publicacao),
-      resumo:          item.resumo          || '',
-      conteudo:        item.conteudo        || '',
-    };
+  const set = (field, value) => {
+    setForm(prev => ({ ...prev, [field]: value, atualizado_em: new Date().toISOString() }));
+    setHasChanges(true);
   };
 
-  const [form,    setForm]    = useState(buildInitialForm);
-  const [saving,  setSaving]  = useState(false);
-  const [error,   setError]   = useState('');
-
-  const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSaving(true); setError('');
-    try { await onSave(form); }
-    catch (err) { setError(err.message); setSaving(false); }
+  const execOp = (op, val = null) => {
+    document.execCommand(op, false, val);
+    if (contentRef.current) {
+      set("conteudo", contentRef.current.innerHTML);
+    }
   };
 
-  const labels = {
-    nome_secretaria:    'Nome da Secretaria',
-    nome_responsavel:   'Responsável',
-    cargo_responsavel:  'Cargo',
-    email:              'E-mail',
-    telefone:           'Telefone',
-    endereco:           'Endereço',
-    horario_atendimento:'Horário de Atendimento',
-    titulo:             'Título',
-    competencia:        'Competência',
-    ano:                'Exercício (Ano)',
-    data_publicacao:    'Data de Publicação',
-    resumo:             'Resumo / Chamada',
-    conteudo:           'Conteúdo Completo (Notícia)',
-    arquivo_url:        'Link / Nome do Arquivo (Storage)',
-    exercicio:          'Exercício / Ano',
+  const handleSave = async (statusOverride = null) => {
+    setSaving(true);
+    try {
+      const finalForm = { ...form };
+      if (statusOverride) finalForm.status = statusOverride;
+      if (contentRef.current) finalForm.conteudo = contentRef.current.innerHTML;
+      
+      await onSave(finalForm);
+      setHasChanges(false);
+      onClose(); // Fecha após salvar com sucesso
+    } catch (err) {
+      alert("Erro ao salvar: " + err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const inputType = (k) => {
-    if (k === 'data_publicacao') return 'date';
-    if (k === 'url_origem') return 'url';
-    if (k === 'ano') return 'number';
-    return 'text';
+  const handleSafeClose = () => {
+    if (hasChanges) {
+      if (window.confirm("Existem alterações não salvas. Deseja realmente sair?")) {
+        onClose();
+      }
+    } else {
+      onClose();
+    }
   };
-
-  const isTextarea = (k) => ['resumo', 'conteudo', 'endereco', 'horario_atendimento'].includes(k);
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{ maxWidth: 580 }} onClick={e => e.stopPropagation()}>
-        <div className="modal-head">
-          <div className="header-main">
-            <span className="badge-meta" style={{ background: '#fef9c3', color: '#854d0e' }}>EDITAR REGISTRO</span>
-            <h3 style={{ marginTop: 8 }}>{item.nome_secretaria || item.titulo || `#${item.id}`}</h3>
+    <div className="fse-overlay">
+      <header className="fse-header">
+        <div className="fse-header-left">
+          <button className="fse-back-btn" onClick={handleSafeClose}>
+            <ArrowLeft size={18} />
+            <span>Voltar</span>
+          </button>
+          <div className="fse-breadcrumb">
+            <span>Admin</span>
+            <ChevronRight size={14} />
+            <span style={{ textTransform: 'capitalize' }}>{mod}</span>
+            <ChevronRight size={14} />
+            <span className="current">{item.id ? "Editar" : "Inserir"}</span>
           </div>
-          <button className="modal-close" onClick={onClose}><X size={18} /></button>
         </div>
+        
+        <div className="fse-header-actions">
+          <button className="btn-silent" onClick={handleSafeClose}>
+            Descartar
+          </button>
+          <button className="btn-secondary" onClick={() => handleSave("rascunho")}>
+            {saving ? "Salvando..." : "Salvar Rascunho"}
+          </button>
+          <button className="btn-primary" onClick={() => handleSave("publicado")}>
+            {saving ? "Publicando..." : (mod === 'noticias' ? "Publicar Agendado" : "Salvar")}
+          </button>
+        </div>
+      </header>
 
-        <form onSubmit={handleSubmit}>
-          <div className="modal-body scrollable" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {mod === 'secretarias' && (
-              <div className="sec-preview-top" style={{ marginBottom: 16 }}>
-                 <div className="sec-large-photo">
-                    {item.foto_url ? <img src={item.foto_url} alt="G" /> : <User size={40} />}
-                 </div>
-                 <div className="sec-titles">
-                    <h4>Visualização do Gestor</h4>
-                    <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>Edite os campos abaixo para atualizar os dados</p>
-                 </div>
+      <main className="fse-content">
+        <div className="fse-layout-grid">
+          {/* Main Column */}
+          <div className="fse-main-col">
+            <div className="fse-card editor-card">
+              <input
+                type="text"
+                className="fse-input-title"
+                placeholder="Título da notícia..."
+                value={form.titulo}
+                onChange={(e) => set("titulo", e.target.value)}
+              />
+              
+              <textarea
+                className="fse-textarea-summary"
+                placeholder="Escreva um resumo curto e impactante..."
+                value={form.resumo}
+                onChange={(e) => set("resumo", e.target.value)}
+              />
+
+              <div className="fse-meta-grid-inline">
+                <div className="fse-field">
+                  <label>Autor</label>
+                  <input 
+                    type="text" 
+                    value={form.autor} 
+                    onChange={(e) => set("autor", e.target.value)}
+                    placeholder="Nome do autor"
+                  />
+                </div>
+                <div className="fse-field">
+                  <label>Fonte / Créditos</label>
+                  <input 
+                    type="text" 
+                    value={form.fonte} 
+                    onChange={(e) => set("fonte", e.target.value)}
+                    placeholder="Ex: Secretaria de Saúde"
+                  />
+                </div>
+                <div className="fse-field">
+                  <label>Ano</label>
+                  <input 
+                    type="number" 
+                    value={form.ano} 
+                    onChange={(e) => set("ano", e.target.value)}
+                  />
+                </div>
+                <div className="fse-field">
+                  <label>Data Exercício</label>
+                  <input 
+                    type="date" 
+                    value={form.data_exercicio} 
+                    onChange={(e) => set("data_exercicio", e.target.value)}
+                  />
+                </div>
               </div>
-            )}
-            {Object.keys(form).map(k => (
-              <div key={k}>
-                <label className="form-label">{labels[k] || k}</label>
-                {isTextarea(k) ? (
-                  <textarea
-                    value={form[k]}
-                    onChange={set(k)}
-                    className="form-input"
-                    rows={3}
-                    style={{ resize: 'vertical' }}
-                  />
+
+              <div className="fse-rich-editor-container">
+                <div className="fse-toolbar">
+                  <button onClick={() => execOp("bold")} title="Negrito"><Bold size={18} /></button>
+                  <button onClick={() => execOp("italic")} title="Itálico"><Italic size={18} /></button>
+                  <button onClick={() => execOp("underline")} title="Sublinhado"><Underline size={18} /></button>
+                  <div className="toolbar-divider" />
+                  <button onClick={() => execOp("formatBlock", "h2")} title="Título 2">H2</button>
+                  <button onClick={() => execOp("formatBlock", "h3")} title="Título 3">H3</button>
+                  <div className="toolbar-divider" />
+                  <button onClick={() => execOp("insertUnorderedList")} title="Lista"><List size={18} /></button>
+                  <button onClick={() => execOp("createLink", prompt("URL:"))} title="Link"><LinkIcon size={18} /></button>
+                  <button onClick={() => execOp("removeFormat")} title="Limpar"><Eraser size={18} /></button>
+                </div>
+                <div
+                  ref={contentRef}
+                  className="fse-editable-area"
+                  contentEditable
+                  onInput={(e) => {
+                    set("conteudo", e.currentTarget.innerHTML);
+                    setHasChanges(true);
+                  }}
+                  dangerouslySetInnerHTML={{ __html: form.conteudo || "" }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Sidebar Column */}
+          <aside className="fse-side-col">
+            <div className="fse-card side-card">
+              <h3 className="side-title">Status e Visibilidade</h3>
+              <div className="status-selector">
+                <div className={`status-pill ${form.status}`}>
+                  <span className="dot"></span>
+                  {form.status === "publicado" ? "Publicado" : form.status === "rascunho" ? "Rascunho" : "Arquivado"}
+                </div>
+                <select 
+                  value={form.status} 
+                  onChange={(e) => set("status", e.target.value)}
+                  className="silent-select"
+                >
+                  <option value="rascunho">Rascunho</option>
+                  <option value="publicado">Publicado</option>
+                  <option value="arquivado">Arquivado</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="fse-card side-card">
+              <h3 className="side-title">Imagem de Destaque</h3>
+              <div className="fse-dropzone">
+                {form.imagem_url || form.imagem ? (
+                  <img src={form.imagem_url || form.imagem} alt="Destaque" className="img-preview" />
                 ) : (
-                  <input
-                    type={inputType(k)}
-                    value={form[k]}
-                    onChange={set(k)}
-                    className="form-input"
-                  />
+                  <div className="dropzone-empty">
+                    <ImageIcon size={32} />
+                    <span>Upload de Imagem</span>
+                    <small>SVG, PNG, JPG (800x600px)</small>
+                  </div>
                 )}
               </div>
-            ))}
-            {error && <div className="error-alert"><AlertCircle size={14} /> {error}</div>}
-          </div>
+            </div>
 
-          <div className="modal-actions">
-            <button type="button" onClick={onClose} className="btn-secondary">Cancelar</button>
-            <button type="submit" className="btn-primary" disabled={saving}>
-              {saving ? <RefreshCcw size={14} className="spin" /> : <CheckCircle2 size={14} />}
-              {saving ? 'Salvando...' : 'Salvar Alterações'}
-            </button>
-          </div>
-        </form>
-      </div>
+            <div className="fse-card side-card metadata-card">
+              <h3 className="side-title">Detalhes do Documento</h3>
+              <div className="meta-list">
+                <div className="meta-item">
+                  <span className="lbl">ID:</span>
+                  <code className="val-code">{form.id || "Novo"}</code>
+                </div>
+                <div className="meta-item">
+                  <span className="lbl">Data do cadastro:</span>
+                  <span className="val">{new Date(form.criado_em).toLocaleDateString("pt-BR")}</span>
+                </div>
+                <div className="meta-item">
+                  <span className="lbl">Atualizado em:</span>
+                  <span className="val">{new Date(form.atualizado_em).toLocaleDateString("pt-BR")}</span>
+                </div>
+                <div className="meta-item">
+                  <span className="lbl">Visualizações:</span>
+                  <span className="val badge-view">{form.visualizacoes || 0} acessos</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="fse-card side-card">
+              <h3 className="side-title">Categorias</h3>
+              <div className="tags-container">
+                {form.categorias?.map((tag, i) => (
+                  <span key={i} className="tag">
+                    {tag}
+                    <button className="tag-remove" onClick={() => {
+                      const newTags = form.categorias.filter((_, idx) => idx !== i);
+                      set("categorias", newTags);
+                    }}><X size={10} /></button>
+                  </span>
+                ))}
+                <button className="btn-add-tag" onClick={() => {
+                  const tag = prompt("Nova categoria:");
+                  if (tag) set("categorias", [...(form.categorias || []), tag]);
+                }}>
+                  + Adicionar
+                </button>
+              </div>
+            </div>
+
+            {form.id && (
+              <button className="btn-danger-outline full-width" onClick={() => onDelete(form.id)}>
+                Excluir Permanentemente
+              </button>
+            )}
+          </aside>
+        </div>
+      </main>
     </div>
   );
 }
@@ -260,23 +392,24 @@ function EditItemModal({ item, module: mod, onClose, onSave }) {
 
 export default function App() {
   // States
-  const [municipios,        setMunicipios]        = useState([]);
+  const [municipios, setMunicipios] = useState([]);
   const [selectedMunicipio, setSelectedMunicipio] = useState(null);
-  const [stats,             setStats]             = useState({ noticias: 0, lrf: 0, secretarias: 0 });
-  const [activeModule,      setActiveModule]      = useState('noticias');
-  const [scrapeLimit,       setScrapeLimit]       = useState(20);
-  const [dataList,          setDataList]          = useState([]);
-  const [selectedItems,     setSelectedItems]     = useState([]);
-  const [isScraping,        setIsScraping]        = useState(false);
-  const [logs,              setLogs]              = useState('Painel iniciado...\n');
-  const [selectedItem,      setSelectedItem]      = useState(null);
-  const [searchTerm,        setSearchTerm]        = useState('');
-  const [sidebarOpen,       setSidebarOpen]       = useState(true);
-  const [showNewModal,      setShowNewModal]      = useState(false);
-  const [cityMenuOpen,      setCityMenuOpen]      = useState(false);
-  const [moduleMenuOpen,    setModuleMenuOpen]    = useState(false);
-  const [sortConfig,        setSortConfig]        = useState({ key: 'id', direction: 'desc' });
-  const [editingItem,       setEditingItem]       = useState(null);
+  const [stats, setStats] = useState({ noticias: 0, lrf: 0, secretarias: 0 });
+  const [activeModule, setActiveModule] = useState('noticias');
+  const [statusFilter, setStatusFilter] = useState('Todos');
+  const [scrapeLimit, setScrapeLimit] = useState(20);
+  const [dataList, setDataList] = useState([]);
+  const [selectedItems, setSelectedItems] = useState([]);
+  const [isScraping, setIsScraping] = useState(false);
+  const [logs, setLogs] = useState('Painel iniciado...\n');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [showNewModal, setShowNewModal] = useState(false);
+  const [cityMenuOpen, setCityMenuOpen] = useState(false);
+  const [moduleMenuOpen, setModuleMenuOpen] = useState(false);
+  const [sortConfig, setSortConfig] = useState({ key: 'id', direction: 'desc' });
+  const [editingItem, setEditingItem] = useState(null);
+  const [dropdownBulkOpen, setDropdownBulkOpen] = useState(false);
 
   const logRef = useRef(null);
 
@@ -284,31 +417,31 @@ export default function App() {
   useEffect(() => { fetchMunicipios(); fetchStats(); }, []);
   useEffect(() => { fetchData(); setSelectedItems([]); }, [activeModule, selectedMunicipio]);
   useEffect(() => { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }, [logs]);
-  
+
   useEffect(() => {
     if (!isScraping) return;
     const id = setInterval(fetchLogs, 2000);
     return () => clearInterval(id);
   }, [isScraping]);
 
-  // Click Outside to Close Popups
   useEffect(() => {
     const handler = (e) => {
       if (moduleMenuOpen && !e.target.closest('.sidebar-module-selector')) setModuleMenuOpen(false);
       if (cityMenuOpen && !e.target.closest('.sidebar-city-selector')) setCityMenuOpen(false);
+      if (dropdownBulkOpen && !e.target.closest('.bulk-dropdown-wrapper')) setDropdownBulkOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [moduleMenuOpen, cityMenuOpen]);
+  }, [moduleMenuOpen, cityMenuOpen, dropdownBulkOpen]);
 
   // ── Handlers ─────────────────────────────────────────────
-  
+
   const fetchMunicipios = async () => {
-    try { const r = await axios.get(`${API_BASE}/municipios`); setMunicipios(r.data); } catch(e) {}
+    try { const r = await axios.get(`${API_BASE}/municipios`); setMunicipios(r.data); } catch (e) { }
   };
 
   const fetchStats = async () => {
-    try { const r = await axios.get(`${API_BASE}/stats`); setStats(r.data); } catch(e) {}
+    try { const r = await axios.get(`${API_BASE}/stats`); setStats(r.data); } catch (e) { }
   };
 
   const fetchData = async () => {
@@ -316,24 +449,30 @@ export default function App() {
     if (!mod?.apiTable) { setDataList([]); return; }
     try {
       const r = await axios.get(`${API_BASE}/${mod.apiTable}`);
-      // Filter by municipality if one is selected
-      const filtered = selectedMunicipio 
+      const filtered = selectedMunicipio
         ? r.data.filter(i => i.municipio_id === selectedMunicipio.id)
         : r.data;
       setDataList(filtered);
-    } catch(e) {}
+    } catch (e) { }
   };
 
   const fetchLogs = async () => {
-    try { 
-      const r = await axios.get(`${API_BASE}/logs`); 
-      setLogs(r.data.logs); 
+    try {
+      const r = await axios.get(`${API_BASE}/logs`);
+      setLogs(r.data.logs);
       if (isScraping && !r.data.isRunning && r.data.logs.includes('🏁')) {
-         setIsScraping(false);
-         fetchStats();
-         fetchData();
+        setIsScraping(false);
+        fetchStats();
+        fetchData();
       }
-    } catch(e) {}
+    } catch (e) { }
+  };
+
+  const handleMunicipioCreated = (m) => {
+    setMunicipios([...municipios, m]);
+    setSelectedMunicipio(m);
+    setShowNewModal(false);
+    appendLog(`✅ Município ${m.nome} cadastrado!`);
   };
 
   const handleScrape = async () => {
@@ -360,7 +499,7 @@ export default function App() {
       await axios.post(`${API_BASE}/scrape/cancel`);
       appendLog('🛑 Cancelamento solicitado pelo usuário...');
       setIsScraping(false);
-    } catch(e) { appendLog('❌ Erro cancelar: '+e.message); }
+    } catch (e) { appendLog('❌ Erro cancelar: ' + e.message); }
   };
 
   const handleDeleteItem = async (item) => {
@@ -370,13 +509,28 @@ export default function App() {
       const fileUrl = activeModule === 'noticias' ? item.imagem_url : activeModule === 'lrf' ? item.arquivo_url : item.foto_url;
       await axios.delete(`${API_BASE}/items`, { params: { id: item.id, table, bucket: 'arquivos_municipais', file_url: fileUrl } });
       appendLog(`✅ Registro removido.`);
+      setEditingItem(null);
       fetchStats(); fetchData();
     } catch (e) { appendLog(`❌ Erro ao deletar: ${e.message}`); }
   };
 
+  const handleBulkStatus = async (newStatus) => {
+    if (selectedItems.length === 0) return;
+    setDropdownBulkOpen(false);
+    const table = activeModule === 'noticias' ? 'tab_noticias' : activeModule === 'lrf' ? 'tab_lrf' : 'tab_secretarias';
+    const ids = selectedItems.map(i => i.id);
+    try {
+      await axios.put(`${API_BASE}/items/status`, { table, ids, status: newStatus });
+      appendLog(`✅ Status de ${ids.length} itens alterado para "${newStatus}".`);
+      setSelectedItems([]);
+      fetchData();
+    } catch (e) { appendLog(`❌ Erro em lote: ${e.message}`); }
+  };
+
   const handleDeleteMultiple = async () => {
-    if(selectedItems.length === 0) return;
+    if (selectedItems.length === 0) return;
     if (!window.confirm(`Deseja excluir ${selectedItems.length} itens selecionados?`)) return;
+    setDropdownBulkOpen(false);
     appendLog(`🗑️ Processando exclusão de ${selectedItems.length} itens...`);
     for (const item of selectedItems) {
       try {
@@ -399,21 +553,17 @@ export default function App() {
       });
       appendLog(`✅ Banco de dados limpo.`);
       fetchStats(); fetchData();
-    } catch(e) { appendLog(`❌ Erro ao limpar: ${e.message}`); }
+    } catch (e) { appendLog(`❌ Erro ao limpar: ${e.message}`); }
   };
 
   const handleSaveEdit = async (updatedData) => {
-    const table = activeModule === 'noticias' ? 'tab_noticias'
-      : activeModule === 'lrf' ? 'tab_lrf'
-      : 'tab_secretarias';
+    const table = activeModule === 'noticias' ? 'tab_noticias' : activeModule === 'lrf' ? 'tab_lrf' : 'tab_secretarias';
     try {
       await axios.put(`${API_BASE}/items`, { id: editingItem.id, table, data: updatedData });
-      appendLog(`✅ Registro #${editingItem.id} atualizado com sucesso.`);
+      appendLog(`✅ Registro #${editingItem.id} atualizado.`);
       setEditingItem(null);
-      fetchData(); fetchStats();
-    } catch (e) {
-      appendLog(`❌ Erro ao salvar edição: ${e.response?.data?.error || e.message}`);
-    }
+      fetchData();
+    } catch (e) { appendLog(`❌ Erro: ${e.message}`); }
   };
 
   const appendLog = (line) => setLogs(prev => prev + '\n' + line);
@@ -430,7 +580,17 @@ export default function App() {
   };
 
   // ── Derived Data ──────────────────────────────────────────
-  const sortedData = [...dataList].sort((a, b) => {
+  let filtered = dataList.filter(i => {
+    if (statusFilter === 'Todos') return true;
+    return (i.status || 'rascunho').toLowerCase() === statusFilter.toLowerCase();
+  });
+
+  if (searchTerm) {
+    const s = searchTerm.toLowerCase();
+    filtered = filtered.filter(i => (i.titulo || i.nome_secretaria || '').toLowerCase().includes(s));
+  }
+
+  const sortedData = [...filtered].sort((a, b) => {
     let valA = a[sortConfig.key];
     let valB = b[sortConfig.key];
     if (sortConfig.key === 'ano') { valA = getExercicio(a); valB = getExercicio(b); }
@@ -439,17 +599,16 @@ export default function App() {
     return 0;
   });
 
-  const currentMod     = MODULES.find(m => m.id === activeModule);
+  const currentMod = MODULES.find(m => m.id === activeModule);
   const actionsEnabled = !!selectedMunicipio && !isScraping;
-  const currentCount   = activeModule === 'noticias' ? stats.noticias : (activeModule === 'secretarias' ? stats.secretarias : stats.lrf);
-  const totalCount     = stats.noticias + stats.lrf + (stats.secretarias || 0);
-  const storageMB      = (stats.noticias * 0.2 + stats.lrf * 1.5 + (stats.secretarias || 0) * 0.1).toFixed(1);
+  const currentCount = activeModule === 'noticias' ? stats.noticias : (activeModule === 'secretarias' ? stats.secretarias : stats.lrf);
+  const storageMB = (stats.noticias * 0.2 + stats.lrf * 1.5 + (stats.secretarias || 0) * 0.1).toFixed(1);
 
   return (
     <div className="app-container">
 
       {/* ─── SIDEBAR ──────────────────────────────────────── */}
-      <aside className={`sidebar ${sidebarOpen ? '' : 'collapsed'}`}>
+      <aside className={`sidebar ${sidebarOpen ? '' : 'collapsed'} ${editingItem ? 'disabled-during-edit' : ''}`}>
         <div className="sidebar-logo">
           <div className="logo-icon"><LayoutDashboard size={18} color="#0A1628" strokeWidth={2.5} /></div>
           <div><div className="brand">PORTAL<span>GOV</span></div><div className="tagline">Admin Dashboard</div></div>
@@ -458,20 +617,17 @@ export default function App() {
         <div className="sidebar-label">Município Atual</div>
         <div className="sidebar-city-selector">
           <button onClick={() => setCityMenuOpen(!cityMenuOpen)} className={`selector-btn ${cityMenuOpen ? 'active' : ''}`}>
-             <div className="btn-icon">{selectedMunicipio ? <MapPin size={14} color="var(--accent)" /> : <Building2 size={14} color="#fff" />}</div>
-             <span className="btn-text">{selectedMunicipio ? selectedMunicipio.nome : 'Monitoramento Global'}</span>
-             <ChevronDown size={14} className={`chevron ${cityMenuOpen ? 'open' : ''}`} />
+            <div className="btn-icon">{selectedMunicipio ? <MapPin size={14} color="var(--accent)" /> : <Building2 size={14} color="#fff" />}</div>
+            <span className="btn-text">{selectedMunicipio ? selectedMunicipio.nome : 'Monitoramento Global'}</span>
+            <ChevronDown size={14} className={`chevron ${cityMenuOpen ? 'open' : ''}`} />
           </button>
           {cityMenuOpen && (
             <div className="selector-dropdown">
-              <div className="dropdown-search">
-                <input placeholder="Procurar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} onClick={e => e.stopPropagation()} />
-              </div>
               <div className="dropdown-list">
                 <button className={`dropdown-item ${!selectedMunicipio ? 'active' : ''}`} onClick={() => { setSelectedMunicipio(null); setCityMenuOpen(false); }}>
                   <Building2 size={14} /> Todos os Municípios
                 </button>
-                {municipios.filter(m => m.nome.toLowerCase().includes(searchTerm.toLowerCase())).map(m => (
+                {municipios.map(m => (
                   <button key={m.id} className={`dropdown-item ${selectedMunicipio?.id === m.id ? 'active' : ''}`} onClick={() => { setSelectedMunicipio(m); setCityMenuOpen(false); }}>
                     <MapPin size={14} /> {m.nome}
                   </button>
@@ -481,18 +637,18 @@ export default function App() {
           )}
         </div>
 
-        <div className="sidebar-label">Módulo Ativo</div>
+        <div className="sidebar-label">Módulos de Dados</div>
         <div className="sidebar-module-selector">
           <button onClick={() => setModuleMenuOpen(!moduleMenuOpen)} className={`selector-btn ${moduleMenuOpen ? 'active' : ''}`}>
-             <div className="btn-icon" style={{ background: 'var(--accent)' }}><currentMod.icon size={14} color="#0A1628" /></div>
-             <span className="btn-text">{currentMod.label}</span>
-             <ChevronDown size={14} className={`chevron ${moduleMenuOpen ? 'open' : ''}`} />
+            <div className="btn-icon" style={{ background: 'var(--accent)' }}><currentMod.icon size={14} color="#0A1628" /></div>
+            <span className="btn-text">{currentMod.label}</span>
+            <ChevronDown size={14} className={`chevron ${moduleMenuOpen ? 'open' : ''}`} />
           </button>
           {moduleMenuOpen && (
             <div className="selector-dropdown">
               <div className="dropdown-list">
                 {MODULES.map(mod => (
-                  <button key={mod.id} className={`dropdown-item ${mod.id === activeModule ? 'active' : ''}`} disabled={!mod.ready} onClick={() => { if(mod.ready){ setActiveModule(mod.id); setModuleMenuOpen(false); }}}>
+                  <button key={mod.id} className={`dropdown-item ${mod.id === activeModule ? 'active' : ''}`} disabled={!mod.ready} onClick={() => { if (mod.ready) { setActiveModule(mod.id); setModuleMenuOpen(false); } }}>
                     <mod.icon size={14} /> {mod.label}
                     {!mod.ready && <span className="badge-small">EM BREVE</span>}
                   </button>
@@ -508,164 +664,190 @@ export default function App() {
           </button>
           <div className="user-profile">
             <div className="avatar">AD</div>
-            <div>
-              <div className="user-name">Administrador</div>
-              <div className="user-role">Master Access</div>
-            </div>
+            <div><div className="user-name">Administrador</div><div className="user-role">Master Access</div></div>
           </div>
         </div>
       </aside>
 
       {/* ─── MAIN CONTENT ─────────────────────────────────── */}
-      <main className="main-viewport">
-        <header className="main-header">
-          <button className="toggle-btn" onClick={() => setSidebarOpen(!sidebarOpen)}><Menu size={18} /></button>
-          <div className="header-info">
-            <h2>{selectedMunicipio ? selectedMunicipio.nome : 'Global Data Flow'}</h2>
-            <div className="header-meta">
-               <span className="status-live"><div className="pulse" /> LIVE</span>
-               <span className="info-text">{selectedMunicipio ? (selectedMunicipio.url_base || 'Portal não configurado') : `${totalCount.toLocaleString()} registros totais`}</span>
-            </div>
-          </div>
-          <div className="header-stats">
-             <div className="h-stat-item"><span className="h-label">Registros</span><span className="h-value">{currentCount}</span></div>
-             <div className="h-stat-divider" />
-             <div className="h-stat-item"><span className="h-label">Storage</span><span className="h-value">{storageMB}<small>MB</small></span></div>
-          </div>
-        </header>
-
-        <div className="action-toolbar">
-          <div className="toolbar-left">
-            <div className="select-wrapper">
-              <select value={scrapeLimit} onChange={e => setScrapeLimit(parseInt(e.target.value))} disabled={isScraping}>
-                <option value={5}>Teste: 5 itens</option>
-                <option value={20}>Padrão: 20 itens</option>
-                <option value={50}>Médio: 50 itens</option>
-                <option value={0}>Completo (Tudo)</option>
-              </select>
-            </div>
-            
-            {isScraping ? (
-              <button className="btn-stop" onClick={handleCancelScrape}>
-                <X size={15} /> Parar Execução
-              </button>
-            ) : (
-              <button className="btn-primary" onClick={handleScrape} disabled={!actionsEnabled}>
-                <RefreshCcw size={15} /> Iniciar Coleta
-              </button>
-            )}
-
-            <div className="toolbar-divider" />
-
-            {selectedItems.length > 0 ? (
-              <button className="btn-danger" onClick={handleDeleteMultiple}>
-                <Trash2 size={15} /> Excluir {selectedItems.length} selecionados
-              </button>
-            ) : (
-              <button className="btn-danger-outline" onClick={handleClearData} disabled={!actionsEnabled}>
-                <Trash2 size={15} /> Limpar Módulo
-              </button>
-            )}
-          </div>
-
-          {!selectedMunicipio && <div className="notice-banner"><Info size={14} /> Selecione um município para coletar novos dados</div>}
-        </div>
-
-        <div className="content-pane">
-          <div className="table-container">
-            <div className="table-header">
-              <div className="th-col col-check">
-                <input type="checkbox" checked={sortedData.length > 0 && selectedItems.length === sortedData.length} onChange={e => setSelectedItems(e.target.checked ? sortedData : [])} />
+      {editingItem ? (
+        <FullScreenEditor 
+          item={editingItem} 
+          module={activeModule} 
+          onClose={() => setEditingItem(null)} 
+          onSave={handleSaveEdit}
+          onDelete={() => handleDeleteItem(editingItem)}
+        />
+      ) : (
+        <main className="main-viewport">
+          <header className="main-header">
+            <button className="toggle-btn" onClick={() => setSidebarOpen(!sidebarOpen)}><Menu size={18} /></button>
+            <div className="header-info">
+              <h2>{selectedMunicipio ? selectedMunicipio.nome : 'Painel de Controle Nacional'}</h2>
+              <div className="header-meta">
+                <span className="status-live"><div className="pulse" /> LIVE SYNC</span>
+                <span className="info-text">{selectedMunicipio ? (selectedMunicipio.url_base || 'Portal não configurado') : `Gerenciando ${stats.noticias + stats.lrf + stats.secretarias} registros`}</span>
               </div>
-              <div className="th-col col-main flex-grow" onClick={() => requestSort('titulo')}>
-                {activeModule === 'secretarias' ? 'Secretaria' : 'Título / Descrição'} {renderSortIcon('titulo')}
-              </div>
-              <div className="th-col col-meta" onClick={() => requestSort('ano')}>Exerc. {renderSortIcon('ano')}</div>
-              <div className="th-col col-meta" onClick={() => requestSort('data_publicacao')}>Data {renderSortIcon('data_publicacao')}</div>
-              <div className="th-col col-ops">Ações</div>
             </div>
+            <div className="header-stats">
+              <div className="h-stat-item"><span className="h-label">Registros</span><span className="h-value">{currentCount}</span></div>
+              <div className="h-stat-divider" />
+              <div className="h-stat-item"><span className="h-label">Storage</span><span className="h-value">{storageMB}<small>MB</small></span></div>
+            </div>
+          </header>
 
-            <div className="table-body">
-              {sortedData.length === 0 ? (
-                <div className="empty-state">
-                  <div className="empty-icon"><AlertCircle size={40} /></div>
-                  <h3>Nenhum registro encontrado</h3>
-                  <p>Realize uma coleta para popular esta tabela.</p>
-                </div>
-              ) : sortedData.map(item => (
-                <div key={item.id} className={`tr-row ${selectedItems.some(i => i.id === item.id) ? 'selected' : ''}`} onClick={() => setEditingItem(item)}>
-                  <div className="td-col col-check" onClick={e => e.stopPropagation()}>
-                    <input type="checkbox" checked={selectedItems.some(i => i.id === item.id)} onChange={e => setSelectedItems(e.target.checked ? [...selectedItems, item] : selectedItems.filter(i => i.id !== item.id))} />
+
+          {/* NOVAS TABS DE STATUS (Requisito do Print 1) */}
+          <div className="status-tabs">
+            {['Todos', 'Publicado', 'Rascunho', 'Arquivado'].map(st => (
+              <button key={st} className={`status-tab ${statusFilter === st ? 'active' : ''}`} onClick={() => setStatusFilter(st)}>
+                {st} {st === 'Todos' ? '' : `(${dataList.filter(i => (i.status||'rascunho') === st.toLowerCase()).length})`}
+              </button>
+            ))}
+          </div>
+
+          <div className="action-toolbar" style={{ marginTop: -12 }}>
+            <div className="toolbar-left">
+              <div className="search-input-wrapper">
+                <Search size={15} />
+                <input placeholder={`Buscar em ${currentMod.label}...`} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+              </div>
+              
+              <div className="select-wrapper">
+                <select value={scrapeLimit} onChange={e => setScrapeLimit(parseInt(e.target.value))} disabled={isScraping}>
+                  { [5, 20, 50, 0].map(v => <option key={v} value={v}>{v === 0 ? 'Tudo' : `Coletar ${v}`}</option>) }
+                </select>
+              </div>
+
+              {isScraping ? (
+                <button className="btn-stop" onClick={handleCancelScrape}><X size={15} /> Parar Coleta</button>
+              ) : (
+                <button className="btn-primary" onClick={handleScrape} disabled={!actionsEnabled}><RefreshCcw size={15} /> Iniciar Coleta</button>
+              )}
+
+              <div className="bulk-dropdown-wrapper" style={{ position: 'relative' }}>
+                <button 
+                  className="btn-outline" 
+                  onClick={() => {
+                    if (selectedItems.length === 0) {
+                      appendLog('⚠️ Selecione um ou mais registros na tabela para realizar ações em lote.');
+                      return;
+                    }
+                    setDropdownBulkOpen(!dropdownBulkOpen);
+                  }}
+                  style={{ background: selectedItems.length > 0 ? 'var(--navy-50)' : '#fff', borderColor: selectedItems.length > 0 ? 'var(--navy-200)' : 'var(--border)' }}
+                >
+                  <ListChecks size={15} /> Ações em Lote {selectedItems.length > 0 && `(${selectedItems.length})`}
+                  <ChevronDown size={14} className={`chevron ${dropdownBulkOpen ? 'open' : ''}`} />
+                </button>
+                {dropdownBulkOpen && (
+                  <div className="selector-dropdown floating" style={{ left: 0, top: 'calc(100% + 8px)', width: 220, zIndex: 1000, position: 'absolute' }}>
+                    <div className="dropdown-list">
+                      <div className="dropdown-label" style={{ padding: '8px 12px', fontSize: 10, fontWeight: 800, color: 'var(--text-muted)' }}>MUDAR STATUS</div>
+                      <button className="dropdown-item" onClick={() => handleBulkStatus('publicado')}><CheckCircle2 size={14} color="#10b981" /> Publicar Selecionados</button>
+                      <button className="dropdown-item" onClick={() => handleBulkStatus('rascunho')}><Pencil size={14} color="#f59e0b" /> Mover para Rascunho</button>
+                      <button className="dropdown-item" onClick={() => handleBulkStatus('arquivado')}><HardDrive size={14} color="#6b7280" /> Arquivar Selecionados</button>
+                      <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+                      <button className="dropdown-item" style={{ color: '#dc2626' }} onClick={handleDeleteMultiple}><Trash2 size={14} /> Excluir Selecionados</button>
+                    </div>
                   </div>
-                  
-                  {activeModule === 'secretarias' ? (
-                    <div className="td-col col-main secretaria-cell">
-                      <div className="sec-column-left">
-                        <div className="sec-avatar">
-                          {item.foto_url ? <img src={item.foto_url} alt="G" /> : <User size={20} />}
+                )}
+              </div>
+            </div>
+
+            <div className="toolbar-right">
+              <button className="btn-danger-outline" onClick={handleClearData} disabled={!actionsEnabled}><Trash2 size={15} /> Limpar Módulo</button>
+            </div>
+          </div>
+
+          <div className="content-pane" style={{ padding: '0 32px 32px', gap: 24 }}>
+            <div className="table-container shadow-sm">
+              <div className="table-header">
+                <div className="th-col col-check">
+                  <input type="checkbox" checked={sortedData.length > 0 && selectedItems.length === sortedData.length} onChange={e => setSelectedItems(e.target.checked ? sortedData : [])} />
+                </div>
+                <div className="th-col col-main flex-grow" onClick={() => requestSort('titulo')}>
+                  {activeModule === 'secretarias' ? 'Secretaria / Orgão' : 'Título'} {renderSortIcon('titulo')}
+                </div>
+                <div className="th-col col-meta" onClick={() => requestSort('ano')}>Exerc. {renderSortIcon('ano')}</div>
+                <div className="th-col col-meta">Status</div>
+                <div className="th-col col-ops">Operações</div>
+              </div>
+
+              <div className="table-body">
+                {sortedData.length === 0 ? (
+                  <div className="empty-state">
+                    <div className="empty-icon"><Info size={40} /></div>
+                    <h3>Sem itens para exibir</h3>
+                    <p>Use o filtro acima ou colete dados novos.</p>
+                  </div>
+                ) : sortedData.map(item => (
+                  <div key={item.id} className={`tr-row ${selectedItems.some(i => i.id === item.id) ? 'selected' : ''}`} onClick={() => setEditingItem(item)}>
+                    <div className="td-col col-check" onClick={e => e.stopPropagation()}>
+                      <input type="checkbox" checked={selectedItems.some(i => i.id === item.id)} onChange={e => setSelectedItems(e.target.checked ? [...selectedItems, item] : selectedItems.filter(i => i.id !== item.id))} />
+                    </div>
+
+                    {activeModule === 'secretarias' ? (
+                      <div className="td-col col-main secretaria-cell">
+                        <div className="sec-column-left">
+                          <div className="sec-avatar">{item.foto_url ? <img src={item.foto_url} alt="G" /> : <User size={20} />}</div>
+                          <div className="sec-info">
+                            <div className="sec-name">{item.nome_secretaria}</div>
+                            <div className="sec-meta"><span className="meta-line"><strong>Titular:</strong> {item.nome_responsavel}</span></div>
+                          </div>
                         </div>
-                        <div className="sec-info">
-                          <div className="sec-name">{item.nome_secretaria}</div>
-                          <div className="sec-meta">
-                            <span className="meta-line"><strong>Resp:</strong> {item.nome_responsavel} {item.cargo_responsavel && `(${item.cargo_responsavel})`}</span>
-                            <span className="meta-line address"><MapPin size={10} /> {item.endereco} • <Clock size={10} /> {item.horario_atendimento}</span>
+                        <div className="sec-column-center">
+                          <div className="sec-contact-stack">
+                            <span className="meta-line"><Mail size={12} /> {item.email || 'N/A'}</span>
+                            <span className="meta-line"><Phone size={12} /> {item.telefone || 'N/A'}</span>
                           </div>
                         </div>
                       </div>
-                      <div className="sec-column-center">
-                        <div className="sec-contact-stack">
-                           <span className="meta-line"><Mail size={12} /> {item.email || 'N/A'}</span>
-                           <span className="meta-line"><Phone size={12} /> {item.telefone || 'N/A'}</span>
+                    ) : (
+                      <div className="td-col col-main generic-cell">
+                        {activeModule === 'noticias' && (
+                          <div className="row-thumb">{item.imagem_url ? <img src={item.imagem_url} alt="T" /> : <Database size={18} />}</div>
+                        )}
+                        <div className="row-text">
+                          <div className="row-title">{item.titulo}</div>
+                          <div className="row-excerpt">{(item.resumo || item.conteudo || '').substring(0, 90)}...</div>
                         </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="td-col col-main generic-cell">
-                      {activeModule === 'noticias' && (
-                        <div className="row-thumb">
-                          {item.imagem_url ? <img src={item.imagem_url} alt="T" /> : <Newspaper size={18} />}
-                        </div>
-                      )}
-                      <div className="row-text">
-                        <div className="row-title">{item.titulo}</div>
-                        <div className="row-excerpt">{(item.resumo || item.conteudo || '').substring(0, 100)}...</div>
-                      </div>
-                    </div>
-                  )}
+                    )}
 
-                  <div className="td-col col-meta">{getExercicio(item)}</div>
-                  <div className="td-col col-meta">{formatDate(item.data_publicacao)}</div>
-                  
-                  <div className="td-col col-ops" onClick={e => e.stopPropagation()}>
-                    <button className="op-btn" title="Editar / Ver" onClick={() => setEditingItem(item)}><Pencil size={14} /></button>
-                    <button className="op-btn" title="Ver Detalhes" onClick={() => setEditingItem(item)}><Eye size={14} /></button>
-                    <button className="op-btn delete" title="Excluir" onClick={() => handleDeleteItem(item)}><Trash2 size={14} /></button>
+                    <div className="td-col col-meta">{getExercicio(item)}</div>
+                    <div className="td-col col-meta">
+                      <span className={`badge ${item.status === 'publicado' ? 'badge-stats' : 'badge-news'}`} style={{ textTransform: 'capitalize' }}>
+                        {item.status || 'rascunho'}
+                      </span>
+                    </div>
+
+                    <div className="td-col col-ops" onClick={e => e.stopPropagation()}>
+                      <button className="op-btn" onClick={() => setEditingItem(item)}><Pencil size={14} /></button>
+                      <button className="op-btn" onClick={() => window.open(item.url_original || item.url_origem, '_blank')}><ExternalLink size={14} /></button>
+                      <button className="op-btn delete" onClick={() => handleDeleteItem(item)}><Trash2 size={14} /></button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            </div>
+
+            <div className="terminal-pane">
+              <div className="terminal-head">
+                <div className="term-title"><Terminal size={14} /> Log do Coletor</div>
+                {isScraping && <span className="term-active">EM EXECUÇÃO</span>}
+              </div>
+              <div className="terminal-body" ref={logRef}>
+                {logs.split('\n').map((line, i) => (
+                  <div key={i} className={`log-line ${classifyLog(line)}`}>{line}</div>
+                ))}
+              </div>
             </div>
           </div>
-
-          <div className="terminal-pane">
-            <div className="terminal-head">
-              <div className="term-title"><Terminal size={14} /> Console de Processamento</div>
-              {isScraping && <span className="term-active">ATIVO</span>}
-            </div>
-            <div className="terminal-body" ref={logRef}>
-              {logs.split('\n').map((line, i) => (
-                <div key={i} className={`log-line ${classifyLog(line)}`}>{line}</div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </main>
-
-      {/* O Modal de Detalhes antigo foi unificado no de Edição */}
+        </main>
+      )}
 
       {showNewModal && <NewMunicipioModal onClose={() => setShowNewModal(false)} onCreated={handleMunicipioCreated} />}
-
-      {editingItem && <EditItemModal item={editingItem} module={activeModule} onClose={() => setEditingItem(null)} onSave={handleSaveEdit} />}
-
     </div>
   );
 }
