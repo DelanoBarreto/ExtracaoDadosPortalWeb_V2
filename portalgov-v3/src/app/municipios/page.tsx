@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -135,6 +135,25 @@ export default function MunicipiosPage() {
       return data ?? [];
     },
   });
+
+  // ── Sincronização Realtime ───────────────────────────────────────────
+  useEffect(() => {
+    const channel = supabase
+      .channel('schema-db-changes-municipios')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tab_municipios' },
+        () => {
+          console.log('🔄 Mudança detectada em tab_municipios, atualizando...');
+          qc.invalidateQueries({ queryKey: ['tab_municipios'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [qc]);
 
   // ── Filtro ────────────────────────────────────────────────────────────────
   const filtered = useMemo(() =>

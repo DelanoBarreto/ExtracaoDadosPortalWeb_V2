@@ -75,6 +75,22 @@ export default function EditNoticiaPage() {
     }
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      await axios.post('/api/admin/delete-items', { ids: [id], modulo: 'noticias' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['noticias'] });
+      router.push('/noticias');
+    }
+  });
+
+  const handleDelete = () => {
+    if (window.confirm("Deseja realmente excluir esta notícia? A imagem de capa e todos os dados serão removidos permanentemente.")) {
+      deleteMutation.mutate();
+    }
+  };
+
   if (isLoading) return <div className="p-8">Carregando...</div>;
 
   return (
@@ -248,7 +264,10 @@ export default function EditNoticiaPage() {
             </div>
 
             <div className="pt-4">
-              <button className="w-full py-4 rounded-2xl bg-red-50 text-red-500 text-[9px] font-black uppercase tracking-[0.2em] hover:bg-red-500 hover:text-white transition-all flex items-center justify-center gap-2 active:scale-95 group">
+              <button 
+                onClick={handleDelete}
+                className="w-full py-4 rounded-2xl bg-red-50 text-red-500 text-[9px] font-black uppercase tracking-[0.2em] hover:bg-red-500 hover:text-white transition-all flex items-center justify-center gap-2 active:scale-95 group"
+              >
                 <Trash2 size={16} />
                 Excluir Registro
               </button>

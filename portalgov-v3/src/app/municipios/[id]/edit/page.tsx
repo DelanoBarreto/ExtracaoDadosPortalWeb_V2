@@ -72,6 +72,22 @@ export default function EditMunicipioPage() {
     }
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      return axios.delete(`/api/municipios/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tab_municipios'] });
+      router.push('/municipios');
+    }
+  });
+
+  const handleDelete = () => {
+    if (window.confirm('Tem certeza que deseja excluir este município? Esta ação é irreversível.')) {
+      deleteMutation.mutate();
+    }
+  };
+
   if (isLoading) return <div className="p-8">Carregando Identidade...</div>;
 
     return (
@@ -313,7 +329,10 @@ export default function EditMunicipioPage() {
             <p className="text-[11px] text-slate-400 font-bold leading-relaxed">
               A exclusão removerá permanentemente todos os registros, arquivos e metadados desta jurisdição. Esta ação é irreversível.
             </p>
-            <button className="w-full py-5 bg-red-50 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-all flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] group active:scale-95 shadow-sm">
+            <button 
+              onClick={handleDelete}
+              className="w-full py-5 bg-red-50 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-all flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] group active:scale-95 shadow-sm"
+            >
               <Trash2 size={18} className="group-hover:scale-110 transition-transform" />
               Remover Município
             </button>

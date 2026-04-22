@@ -65,10 +65,26 @@ export default function EditLRFPage() {
       return axios.put(`/api/lrf/${id}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tab_lrf'] });
+      queryClient.invalidateQueries({ queryKey: ['lrf'] });
       router.push('/lrf');
     }
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      await axios.post('/api/admin/delete-items', { ids: [id], modulo: 'lrf' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lrf'] });
+      router.push('/lrf');
+    }
+  });
+
+  const handleDelete = () => {
+    if (window.confirm("Deseja realmente revogar este documento? Os dados serão removidos permanentemente.")) {
+      deleteMutation.mutate();
+    }
+  };
 
   if (isLoading) return <div className="p-8">Carregando...</div>;
 
@@ -239,7 +255,10 @@ export default function EditLRFPage() {
             </div>
 
             <div className="pt-4">
-              <button className="w-full py-4 rounded-2xl bg-red-50 text-red-500 text-[9px] font-black uppercase tracking-[0.2em] hover:bg-red-500 hover:text-white transition-all flex items-center justify-center gap-2 active:scale-95 group">
+              <button 
+                onClick={handleDelete}
+                className="w-full py-4 rounded-2xl bg-red-50 text-red-500 text-[9px] font-black uppercase tracking-[0.2em] hover:bg-red-500 hover:text-white transition-all flex items-center justify-center gap-2 active:scale-95 group"
+              >
                 <Trash2 size={16} />
                 Revogar Documento
               </button>

@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Plus, Zap, Search, Users, Mail, Phone, Terminal,
+  Plus, Zap, Search, Users, Mail, Phone, Terminal, Filter,
   ShieldCheck, Pencil, Trash2, RefreshCw, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -13,6 +13,8 @@ import { supabase } from '@/lib/supabase';
 import { DataTableV2, Column } from '@/components/shared/DataTableV2';
 import { BulkActionsBar } from '@/components/shared/BulkActionsBar';
 import { useEffect } from 'react';
+import axios from 'axios';
+import { CheckCircle2 } from 'lucide-react';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────
 interface Secretaria {
@@ -135,11 +137,14 @@ export default function SecretariasPage() {
 
   const [selectedIds,   setSelectedIds]   = useState<string[]>([]);
   const [searchQuery,   setSearchQuery]   = useState('');
+  const [statusFilter,  setStatusFilter]  = useState('todos');
   const [sortKey,       setSortKey]       = useState('nome_secretaria');
   const [sortDir,       setSortDir]       = useState<'asc' | 'desc'>('asc');
   const [page,          setPage]          = useState(0);
   const [pageSize]                        = useState(20);
   const [confirmDelete, setConfirmDelete] = useState<string | 'bulk' | null>(null);
+  const [confirmClear,  setConfirmClear]  = useState(false);
+  const [deleteStorage, setDeleteStorage] = useState(false);
 
   // ── Sincronização Realtime ───────────────────────────────────────────
   useEffect(() => {
@@ -150,7 +155,7 @@ export default function SecretariasPage() {
         { event: '*', schema: 'public', table: 'tab_secretarias' },
         () => {
           console.log('🔄 Mudança detectada em tab_secretarias, atualizando...');
-          qc.invalidateQueries({ queryKey: ['tab_secretarias'] });
+          qc.invalidateQueries({ queryKey: ['secretarias'] });
         }
       )
       .subscribe();
@@ -162,7 +167,7 @@ export default function SecretariasPage() {
 
   // ── Query com Paginação ──────────────────────────────────────────────
   const { data: result, isLoading, refetch } = useQuery({
-    queryKey: ['tab_secretarias', municipioAtivo?.id, sortKey, sortDir, page, pageSize, searchQuery],
+    queryKey: ['secretarias', municipioAtivo?.id, sortKey, sortDir, page, pageSize, searchQuery, statusFilter],
     queryFn:  async () => {
       if (!municipioAtivo?.id) return { data: [], count: 0 };
       
@@ -173,6 +178,10 @@ export default function SecretariasPage() {
 
       if (searchQuery) {
         query = query.ilike('nome_secretaria', `%${searchQuery}%`);
+      }
+
+      if (statusFilter !== 'todos') {
+        query = query.eq('status', statusFilter);
       }
 
       const { data, error, count } = await query
@@ -194,13 +203,31 @@ export default function SecretariasPage() {
   // ── Mutations ─────────────────────────────────────────────────────────────
   const deleteMutation = useMutation({
     mutationFn: async (ids: string[]) => {
-      await supabase.from('tab_secretarias').delete().in('id', ids);
+      await axios.post('/api/admin/delete-items', { ids, modulo: 'secretarias' });
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['tab_secretarias'] });
+      qc.invalidateQueries({ queryKey: ['secretarias'] });
       qc.invalidateQueries({ queryKey: ['dashboard-stats'] });
       setSelectedIds([]);
       setConfirmDelete(null);
+    },
+  });
+
+  const clearDataMutation = useMutation({
+    mutationFn: async () => {
+      if (!municipioAtivo?.id) return;
+      await axios.delete('/api/admin/clear-data', {
+        params: { 
+          municipio_id: municipioAtivo.id, 
+          modulo: 'secretarias',
+          delete_storage: deleteStorage 
+        }
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['secretarias'] });
+      qc.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      setConfirmClear(false);
     },
   });
 
@@ -209,7 +236,7 @@ export default function SecretariasPage() {
       await supabase.from('tab_secretarias').update({ status }).in('id', ids);
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['tab_secretarias'] });
+      qc.invalidateQueries({ queryKey: ['secretarias'] });
       setSelectedIds([]);
     },
   });
@@ -266,7 +293,14 @@ export default function SecretariasPage() {
             Novo Registro
           </button>
           <button 
-            onClick={() => usePortalStore.getState().setLogPanelOpen(true)}
+            onClick={() => setConfirmClear(true)}
+            className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white border border-red-100 text-red-400 hover:text-red-600 hover:border-red-600 transition-all shadow-sm"
+            title="Limpar Todos os Dados"
+          >
+            <Trash2 size={18} />
+          </button>
+          <button 
+            onClick={() => setLogPanelOpen(true)}
             className="px-8 py-3.5 bg-[var(--color-primary)] text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-[var(--shadow-primary)] hover:bg-[var(--color-primary-hover)] transition-all flex items-center gap-2 active:scale-95"
           >
             <Terminal size={18} />
@@ -288,6 +322,19 @@ export default function SecretariasPage() {
               setPage(0);
             }}
           />
+        </div>
+        <div className="relative h-14 flex items-center">
+          <Filter size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <select
+            value={statusFilter}
+            onChange={e => { setStatusFilter(e.target.value); setPage(0); }}
+            className="h-14 pl-11 pr-10 bg-white border-2 border-slate-100 rounded-2xl text-xs font-black uppercase tracking-wider text-[var(--color-ink)] appearance-none cursor-pointer focus:border-[var(--color-primary)] focus:ring-4 focus:ring-[var(--color-primary-glow)] outline-none transition-all shadow-sm"
+          >
+            <option value="todos">Todos</option>
+            <option value="rascunho">Rascunho</option>
+            <option value="publicado">Publicado</option>
+            <option value="arquivado">Arquivado</option>
+          </select>
         </div>
       </div>
 
@@ -341,6 +388,50 @@ export default function SecretariasPage() {
           onDelete={() => setConfirmDelete('bulk')}
           onClear={() => setSelectedIds([])}
         />
+      )}
+
+      {/* ── Modal de Confirmação de Limpeza ───────────────────────────── */}
+      {confirmClear && (
+        <div className="fixed inset-0 bg-[#0f172a]/60 backdrop-blur-sm z-[200] flex items-center justify-center p-6">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="bg-white rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl border border-slate-100"
+          >
+            <div className="w-16 h-16 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center mb-8">
+              <Trash2 size={32} />
+            </div>
+            <h3 className="text-2xl font-black text-[var(--color-ink)] mb-3">
+              Limpar Módulo Secretarias
+            </h3>
+            <p className="text-slate-500 font-medium leading-relaxed mb-6">
+              Deseja apagar TODAS as secretarias e órgãos para <strong>{municipioAtivo?.nome}</strong>? Esta ação removerá também os dados de contatos e fotos.
+            </p>
+            
+            <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl mb-8 cursor-pointer group" onClick={() => setDeleteStorage(!deleteStorage)}>
+              <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${deleteStorage ? 'bg-red-500 border-red-500 text-white' : 'border-slate-300 bg-white'}`}>
+                {deleteStorage && <CheckCircle2 size={14} />}
+              </div>
+              <span className="text-xs font-black uppercase tracking-wider text-slate-600 group-hover:text-slate-900 transition-colors">Remover também fotos do Storage</span>
+            </div>
+
+            <div className="flex gap-4">
+              <button 
+                className="flex-1 py-4 text-sm font-black text-slate-400 hover:text-slate-600 transition-colors"
+                onClick={() => setConfirmClear(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                className="flex-1 py-4 bg-red-500 hover:bg-red-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-[0_10px_20px_rgba(239,68,68,0.2)] transition-all"
+                onClick={() => clearDataMutation.mutate()}
+                disabled={clearDataMutation.isPending}
+              >
+                {clearDataMutation.isPending ? 'Limpando...' : 'Confirmar'}
+              </button>
+            </div>
+          </motion.div>
+        </div>
       )}
 
       {/* ── Modal de Confirmação ───────────────────────────────────────── */}

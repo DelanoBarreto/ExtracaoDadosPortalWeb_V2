@@ -68,10 +68,26 @@ export default function EditSecretariaPage() {
       return axios.put(`/api/secretarias/${id}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tab_secretarias'] });
+      queryClient.invalidateQueries({ queryKey: ['secretarias'] });
       router.push('/secretarias');
     }
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      await axios.post('/api/admin/delete-items', { ids: [id], modulo: 'secretarias' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['secretarias'] });
+      router.push('/secretarias');
+    }
+  });
+
+  const handleDelete = () => {
+    if (window.confirm("Deseja realmente extinguir este órgão? Todos os dados e fotos serão removidos permanentemente.")) {
+      deleteMutation.mutate();
+    }
+  };
 
   if (isLoading) return <div className="p-8">Carregando...</div>;
 
@@ -254,9 +270,13 @@ export default function EditSecretariaPage() {
             </div>
 
             <div className="pt-4">
-              <button className="w-full py-4 rounded-2xl bg-red-50 text-red-500 text-[9px] font-black uppercase tracking-[0.2em] hover:bg-red-500 hover:text-white transition-all flex items-center justify-center gap-2 active:scale-95 group">
+              <button 
+                onClick={handleDelete}
+                disabled={deleteMutation.isPending}
+                className="w-full py-4 rounded-2xl bg-red-50 text-red-500 text-[9px] font-black uppercase tracking-[0.2em] hover:bg-red-500 hover:text-white transition-all flex items-center justify-center gap-2 active:scale-95 group disabled:opacity-50"
+              >
                 <Trash2 size={16} />
-                Extinguir Órgão
+                {deleteMutation.isPending ? 'Extinguindo...' : 'Extinguir Órgão'}
               </button>
             </div>
           </div>
