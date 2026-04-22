@@ -72,48 +72,44 @@ function NewMunicipioModal({ onClose, onCreated }) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
-        <div className="modal-head">
+      <div className="modal-v3" onClick={e => e.stopPropagation()}>
+        <div className="modal-head-v3">
           <div>
-            <span className="badge badge-news" style={{ marginBottom: 8, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-              <Plus size={10} /> Novo Município
+            <span className="text-caps" style={{ color: 'var(--pg-orange)', marginBottom: 4, display: 'block' }}>
+              Configuração Técnica
             </span>
-            <h3>Cadastrar Município</h3>
+            <h3 style={{ color: 'var(--pg-text-primary)', fontSize: 16 }}>Cadastrar Município</h3>
           </div>
-          <button className="modal-close" onClick={onClose} aria-label="Fechar"><X size={16} /></button>
+          <button className="action-btn-v3" onClick={onClose}><X size={16} /></button>
         </div>
         <form onSubmit={handleSubmit}>
-          <div style={{ padding: '20px 32px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div>
-              <label className="form-label">Nome do Município *</label>
+          <div className="modal-body-v3">
+            <div className="form-field-v3">
+              <label>Identificação do Município</label>
               <input
                 type="text"
                 placeholder="Ex: Aracati"
                 value={form.nome}
                 onChange={e => setForm(f => ({ ...f, nome: e.target.value }))}
-                className="form-input"
+                className="form-input-v3"
               />
             </div>
-            <div>
-              <label className="form-label">URL do Portal Oficial *</label>
-              <div style={{ position: 'relative' }}>
-                <Globe size={14} className="input-icon" />
-                <input
-                  type="url"
-                  placeholder="https://www.municipio.ce.gov.br"
-                  value={form.url_base}
-                  onChange={e => setForm(f => ({ ...f, url_base: e.target.value }))}
-                  className="form-input with-icon"
-                />
-              </div>
+            <div className="form-field-v3">
+              <label>Endpoint do Portal (URL)</label>
+              <input
+                type="url"
+                placeholder="https://www.municipio.ce.gov.br"
+                value={form.url_base}
+                onChange={e => setForm(f => ({ ...f, url_base: e.target.value }))}
+                className="form-input-v3"
+              />
             </div>
-            {error && <div className="error-alert"><AlertCircle size={14} /> {error}</div>}
+            {error && <div style={{ color: 'var(--pg-red)', fontSize: 11, marginTop: 8 }}>{error}</div>}
           </div>
-          <div className="modal-actions">
-            <button type="button" onClick={onClose} className="btn-secondary">Cancelar</button>
-            <button type="submit" className="btn-primary" disabled={loading}>
-              {loading ? <RefreshCcw size={14} className="spin" /> : <Plus size={14} />}
-              {loading ? 'Cadastrando...' : 'Cadastrar Município'}
+          <div style={{ padding: '0 24px 24px', display: 'flex', gap: 12 }}>
+            <button type="button" onClick={onClose} className="btn-pg-ghost" style={{ flex: 1 }}>Cancelar</button>
+            <button type="submit" className="btn-pg-primary" style={{ flex: 1, justifyContent: 'center' }} disabled={loading}>
+              {loading ? <RefreshCcw size={14} className="spin" /> : 'Confirmar Cadastro'}
             </button>
           </div>
         </form>
@@ -134,7 +130,7 @@ function FullScreenEditor({ item, module: mod, onClose, onSave, onDelete }) {
     data_exercicio: item.data_exercicio || (item.data_publicacao ? item.data_publicacao.split('T')[0] : new Date().toISOString().split("T")[0]),
     fonte: item.fonte || item.link_original || item.url_original || "",
     status: item.status || "rascunho",
-    categorias: item.categorias || ["Defesa Civil", "Educação"], // Mock default tags
+    categorias: item.categorias || ["Administrativo", "Transparência"],
     visualizacoes: item.visualizacoes || item.acessos || 0,
     criado_em: item.criado_em || item.created_at || new Date().toISOString(),
     atualizado_em: item.atualizado_em || item.updated_at || new Date().toISOString()
@@ -165,7 +161,7 @@ function FullScreenEditor({ item, module: mod, onClose, onSave, onDelete }) {
       
       await onSave(finalForm);
       setHasChanges(false);
-      onClose(); // Fecha após salvar com sucesso
+      onClose();
     } catch (err) {
       alert("Erro ao salvar: " + err.message);
     } finally {
@@ -186,7 +182,7 @@ function FullScreenEditor({ item, module: mod, onClose, onSave, onDelete }) {
   return (
     <div className="fse-overlay">
       <header className="fse-header">
-        <div className="fse-header-left">
+        <div style={{ display: 'flex', alignItems: 'center' }}>
           <button className="fse-back-btn" onClick={handleSafeClose}>
             <ArrowLeft size={18} />
             <span>Voltar</span>
@@ -196,193 +192,115 @@ function FullScreenEditor({ item, module: mod, onClose, onSave, onDelete }) {
             <ChevronRight size={14} />
             <span style={{ textTransform: 'capitalize' }}>{mod}</span>
             <ChevronRight size={14} />
-            <span className="current">{item.id ? "Editar" : "Inserir"}</span>
+            <span className="current">{item.id ? "Editar Registro" : "Novo Registro"}</span>
           </div>
         </div>
         
-        <div className="fse-header-actions">
-          <button className="btn-silent" onClick={handleSafeClose}>
-            Descartar
-          </button>
-          <button className="btn-secondary" onClick={() => handleSave("rascunho")}>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <button className="btn-pg-ghost" onClick={handleSafeClose}>Descartar</button>
+          <button className="btn-pg-ghost" style={{ background: '#FFF3EE', borderColor: 'var(--pg-orange-border)', color: 'var(--pg-orange)' }} onClick={() => handleSave("rascunho")}>
             {saving ? "Salvando..." : "Salvar Rascunho"}
           </button>
-          <button className="btn-primary" onClick={() => handleSave("publicado")}>
-            {saving ? "Publicando..." : (mod === 'noticias' ? "Publicar Agendado" : "Salvar")}
+          <button className="btn-pg-primary" onClick={() => handleSave("publicado")}>
+            {saving ? "Publicando..." : "Publicar agora"}
           </button>
         </div>
       </header>
 
-      <main className="fse-content">
-        <div className="fse-layout-grid">
-          {/* Main Column */}
-          <div className="fse-main-col">
-            <div className="fse-card editor-card">
-              <input
-                type="text"
-                className="fse-input-title"
-                placeholder="Título da notícia..."
-                value={form.titulo}
-                onChange={(e) => set("titulo", e.target.value)}
-              />
-              
-              <textarea
-                className="fse-textarea-summary"
-                placeholder="Escreva um resumo curto e impactante..."
-                value={form.resumo}
-                onChange={(e) => set("resumo", e.target.value)}
-              />
+      <main className="fse-main">
+        <div className="fse-content">
+          <div className="fse-paper">
+            <input 
+              className="fse-title-input"
+              value={form.titulo}
+              onChange={(e) => set("titulo", e.target.value)}
+              placeholder="Título do conteúdo..."
+            />
+            
+            <div className="fse-toolbar-v3">
+              <button onClick={() => execOp('bold')} title="Negrito"><Bold size={16} /></button>
+              <button onClick={() => execOp('italic')} title="Itálico"><Italic size={16} /></button>
+              <button onClick={() => execOp('underline')} title="Sublinhado"><Underline size={16} /></button>
+              <div className="sep"></div>
+              <button onClick={() => execOp('insertUnorderedList')} title="Lista"><List size={16} /></button>
+              <button onClick={() => execOp('insertOrderedList')} title="Lista Numérica"><ListOrdered size={16} /></button>
+            </div>
 
-              <div className="fse-meta-grid-inline">
-                <div className="fse-field">
-                  <label>Autor</label>
-                  <input 
-                    type="text" 
-                    value={form.autor} 
-                    onChange={(e) => set("autor", e.target.value)}
-                    placeholder="Nome do autor"
-                  />
-                </div>
-                <div className="fse-field">
-                  <label>Fonte / Créditos</label>
-                  <input 
-                    type="text" 
-                    value={form.fonte} 
-                    onChange={(e) => set("fonte", e.target.value)}
-                    placeholder="Ex: Secretaria de Saúde"
-                  />
-                </div>
-                <div className="fse-field">
-                  <label>Ano</label>
-                  <input 
-                    type="number" 
-                    value={form.ano} 
-                    onChange={(e) => set("ano", e.target.value)}
-                  />
-                </div>
-                <div className="fse-field">
-                  <label>Data Exercício</label>
-                  <input 
-                    type="date" 
-                    value={form.data_exercicio} 
-                    onChange={(e) => set("data_exercicio", e.target.value)}
-                  />
-                </div>
+            <div 
+              className="fse-editor-industrial"
+              contentEditable
+              ref={contentRef}
+              dangerouslySetInnerHTML={{ __html: item.conteudo || "" }}
+              onInput={(e) => set("conteudo", e.currentTarget.innerHTML)}
+            />
+          </div>
+        </div>
+
+        <aside className="fse-sidebar">
+          <div className="fse-card side-card">
+            <h3 className="side-title">Status e Visibilidade</h3>
+            <div className="status-selector">
+              <div className={`status-pill ${form.status}`}>
+                <div className="dot"></div>
+                {form.status === "publicado" ? "Publicado" : "Rascunho"}
               </div>
+              <select value={form.status} onChange={(e) => set("status", e.target.value)} className="silent-select">
+                <option value="rascunho">Rascunho</option>
+                <option value="publicado">Publicado</option>
+              </select>
+            </div>
+          </div>
 
-              <div className="fse-rich-editor-container">
-                <div className="fse-toolbar">
-                  <button onClick={() => execOp("bold")} title="Negrito"><Bold size={18} /></button>
-                  <button onClick={() => execOp("italic")} title="Itálico"><Italic size={18} /></button>
-                  <button onClick={() => execOp("underline")} title="Sublinhado"><Underline size={18} /></button>
-                  <div className="toolbar-divider" />
-                  <button onClick={() => execOp("formatBlock", "h2")} title="Título 2">H2</button>
-                  <button onClick={() => execOp("formatBlock", "h3")} title="Título 3">H3</button>
-                  <div className="toolbar-divider" />
-                  <button onClick={() => execOp("insertUnorderedList")} title="Lista"><List size={18} /></button>
-                  <button onClick={() => execOp("createLink", prompt("URL:"))} title="Link"><LinkIcon size={18} /></button>
-                  <button onClick={() => execOp("removeFormat")} title="Limpar"><Eraser size={18} /></button>
+          <div className="fse-card side-card">
+            <h3 className="side-title">Imagem de Destaque</h3>
+            <div className="fse-dropzone">
+              {form.imagem_url ? (
+                <img src={form.imagem_url} alt="" className="img-preview" />
+              ) : (
+                <div className="dropzone-empty">
+                  <ImageIcon size={32} />
+                  <span>Nenhuma imagem</span>
                 </div>
-                <div
-                  ref={contentRef}
-                  className="fse-editable-area"
-                  contentEditable
-                  onInput={(e) => {
-                    set("conteudo", e.currentTarget.innerHTML);
-                    setHasChanges(true);
-                  }}
-                  dangerouslySetInnerHTML={{ __html: form.conteudo || "" }}
-                />
+              )}
+            </div>
+          </div>
+
+          <div className="fse-card side-card metadata-card">
+            <h3 className="side-title">Detalhes do Registro</h3>
+            <div className="meta-list">
+              <div className="meta-item">
+                <span className="lbl">ID:</span>
+                <span className="val">{form.id || "–"}</span>
+              </div>
+              <div className="meta-item">
+                <span className="lbl">Criado:</span>
+                <span className="val">{formatDate(form.criado_em)}</span>
               </div>
             </div>
           </div>
 
-          {/* Sidebar Column */}
-          <aside className="fse-side-col">
-            <div className="fse-card side-card">
-              <h3 className="side-title">Status e Visibilidade</h3>
-              <div className="status-selector">
-                <div className={`status-pill ${form.status}`}>
-                  <span className="dot"></span>
-                  {form.status === "publicado" ? "Publicado" : form.status === "rascunho" ? "Rascunho" : "Arquivado"}
-                </div>
-                <select 
-                  value={form.status} 
-                  onChange={(e) => set("status", e.target.value)}
-                  className="silent-select"
-                >
-                  <option value="rascunho">Rascunho</option>
-                  <option value="publicado">Publicado</option>
-                  <option value="arquivado">Arquivado</option>
-                </select>
-              </div>
+          <div className="fse-card side-card">
+            <h3 className="side-title">Categorias</h3>
+            <div className="tags-container">
+              {(form.categorias || []).map((tag, i) => (
+                <span key={i} className="tag">
+                  {tag}
+                  <button onClick={() => set("categorias", form.categorias.filter((_, idx) => idx !== i))}><X size={10} /></button>
+                </span>
+              ))}
+              <button className="btn-add-tag" onClick={() => {
+                const tag = prompt("Nova categoria:");
+                if (tag) set("categorias", [...(form.categorias || []), tag]);
+              }}>+ Add</button>
             </div>
+          </div>
 
-            <div className="fse-card side-card">
-              <h3 className="side-title">Imagem de Destaque</h3>
-              <div className="fse-dropzone">
-                {form.imagem_url || form.imagem ? (
-                  <img src={form.imagem_url || form.imagem} alt="Destaque" className="img-preview" />
-                ) : (
-                  <div className="dropzone-empty">
-                    <ImageIcon size={32} />
-                    <span>Upload de Imagem</span>
-                    <small>SVG, PNG, JPG (800x600px)</small>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="fse-card side-card metadata-card">
-              <h3 className="side-title">Detalhes do Documento</h3>
-              <div className="meta-list">
-                <div className="meta-item">
-                  <span className="lbl">ID:</span>
-                  <code className="val-code">{form.id || "Novo"}</code>
-                </div>
-                <div className="meta-item">
-                  <span className="lbl">Data do cadastro:</span>
-                  <span className="val">{new Date(form.criado_em).toLocaleDateString("pt-BR")}</span>
-                </div>
-                <div className="meta-item">
-                  <span className="lbl">Atualizado em:</span>
-                  <span className="val">{new Date(form.atualizado_em).toLocaleDateString("pt-BR")}</span>
-                </div>
-                <div className="meta-item">
-                  <span className="lbl">Visualizações:</span>
-                  <span className="val badge-view">{form.visualizacoes || 0} acessos</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="fse-card side-card">
-              <h3 className="side-title">Categorias</h3>
-              <div className="tags-container">
-                {form.categorias?.map((tag, i) => (
-                  <span key={i} className="tag">
-                    {tag}
-                    <button className="tag-remove" onClick={() => {
-                      const newTags = form.categorias.filter((_, idx) => idx !== i);
-                      set("categorias", newTags);
-                    }}><X size={10} /></button>
-                  </span>
-                ))}
-                <button className="btn-add-tag" onClick={() => {
-                  const tag = prompt("Nova categoria:");
-                  if (tag) set("categorias", [...(form.categorias || []), tag]);
-                }}>
-                  + Adicionar
-                </button>
-              </div>
-            </div>
-
-            {form.id && (
-              <button className="btn-danger-outline full-width" onClick={() => onDelete(form.id)}>
-                Excluir Permanentemente
-              </button>
-            )}
-          </aside>
-        </div>
+          {form.id && (
+            <button className="btn-danger-outline full-width" style={{ marginTop: 20 }} onClick={() => onDelete(form)}>
+              Excluir Permanentemente
+            </button>
+          )}
+        </aside>
       </main>
     </div>
   );
@@ -410,6 +328,7 @@ export default function App() {
   const [sortConfig, setSortConfig] = useState({ key: 'id', direction: 'desc' });
   const [editingItem, setEditingItem] = useState(null);
   const [dropdownBulkOpen, setDropdownBulkOpen] = useState(false);
+  const [terminalOpen, setTerminalOpen] = useState(false);
 
   const logRef = useRef(null);
 
@@ -426,13 +345,17 @@ export default function App() {
 
   useEffect(() => {
     const handler = (e) => {
-      if (moduleMenuOpen && !e.target.closest('.sidebar-module-selector')) setModuleMenuOpen(false);
-      if (cityMenuOpen && !e.target.closest('.sidebar-city-selector')) setCityMenuOpen(false);
-      if (dropdownBulkOpen && !e.target.closest('.bulk-dropdown-wrapper')) setDropdownBulkOpen(false);
+      // Fechar dropdowns se clicar fora
+      if (cityMenuOpen && !e.target.closest('.city-selector-v3')) {
+        setCityMenuOpen(false);
+      }
+      if (dropdownBulkOpen && !e.target.closest('.table-actions-v3')) {
+        setDropdownBulkOpen(false);
+      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [moduleMenuOpen, cityMenuOpen, dropdownBulkOpen]);
+  }, [cityMenuOpen, dropdownBulkOpen]);
 
   // ── Handlers ─────────────────────────────────────────────
 
@@ -579,7 +502,17 @@ export default function App() {
     return sortConfig.direction === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />;
   };
 
-  // ── Derived Data ──────────────────────────────────────────
+  // ── Derived Data & V3 Metrics ─────────────────────────────
+  const metrics = React.useMemo(() => {
+    const total = dataList.length;
+    const publicados = dataList.filter(i => (i.status || 'rascunho') === 'publicado').length;
+    const pendentes = total - publicados;
+    const lastSync = dataList.length > 0 ? formatDate(dataList[0].criado_em) : '–';
+    const percentPub = total > 0 ? (publicados / total) * 100 : 0;
+
+    return { total, publicados, pendentes, lastSync, percentPub };
+  }, [dataList]);
+
   let filtered = dataList.filter(i => {
     if (statusFilter === 'Todos') return true;
     return (i.status || 'rascunho').toLowerCase() === statusFilter.toLowerCase();
@@ -601,251 +534,261 @@ export default function App() {
 
   const currentMod = MODULES.find(m => m.id === activeModule);
   const actionsEnabled = !!selectedMunicipio && !isScraping;
-  const currentCount = activeModule === 'noticias' ? stats.noticias : (activeModule === 'secretarias' ? stats.secretarias : stats.lrf);
   const storageMB = (stats.noticias * 0.2 + stats.lrf * 1.5 + (stats.secretarias || 0) * 0.1).toFixed(1);
 
   return (
     <div className="app-container">
 
-      {/* ─── SIDEBAR ──────────────────────────────────────── */}
-      <aside className={`sidebar ${sidebarOpen ? '' : 'collapsed'} ${editingItem ? 'disabled-during-edit' : ''}`}>
-        <div className="sidebar-logo">
-          <div className="logo-icon"><LayoutDashboard size={18} color="#0A1628" strokeWidth={2.5} /></div>
-          <div><div className="brand">PORTAL<span>GOV</span></div><div className="tagline">Admin Dashboard</div></div>
-        </div>
-
-        <div className="sidebar-label">Município Atual</div>
-        <div className="sidebar-city-selector">
-          <button onClick={() => setCityMenuOpen(!cityMenuOpen)} className={`selector-btn ${cityMenuOpen ? 'active' : ''}`}>
-            <div className="btn-icon">{selectedMunicipio ? <MapPin size={14} color="var(--accent)" /> : <Building2 size={14} color="#fff" />}</div>
-            <span className="btn-text">{selectedMunicipio ? selectedMunicipio.nome : 'Monitoramento Global'}</span>
-            <ChevronDown size={14} className={`chevron ${cityMenuOpen ? 'open' : ''}`} />
-          </button>
-          {cityMenuOpen && (
-            <div className="selector-dropdown">
-              <div className="dropdown-list">
-                <button className={`dropdown-item ${!selectedMunicipio ? 'active' : ''}`} onClick={() => { setSelectedMunicipio(null); setCityMenuOpen(false); }}>
-                  <Building2 size={14} /> Todos os Municípios
-                </button>
-                {municipios.map(m => (
-                  <button key={m.id} className={`dropdown-item ${selectedMunicipio?.id === m.id ? 'active' : ''}`} onClick={() => { setSelectedMunicipio(m); setCityMenuOpen(false); }}>
-                    <MapPin size={14} /> {m.nome}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="sidebar-label">Módulos de Dados</div>
-        <div className="sidebar-module-selector">
-          <button onClick={() => setModuleMenuOpen(!moduleMenuOpen)} className={`selector-btn ${moduleMenuOpen ? 'active' : ''}`}>
-            <div className="btn-icon" style={{ background: 'var(--accent)' }}><currentMod.icon size={14} color="#0A1628" /></div>
-            <span className="btn-text">{currentMod.label}</span>
-            <ChevronDown size={14} className={`chevron ${moduleMenuOpen ? 'open' : ''}`} />
-          </button>
-          {moduleMenuOpen && (
-            <div className="selector-dropdown">
-              <div className="dropdown-list">
-                {MODULES.map(mod => (
-                  <button key={mod.id} className={`dropdown-item ${mod.id === activeModule ? 'active' : ''}`} disabled={!mod.ready} onClick={() => { if (mod.ready) { setActiveModule(mod.id); setModuleMenuOpen(false); } }}>
-                    <mod.icon size={14} /> {mod.label}
-                    {!mod.ready && <span className="badge-small">EM BREVE</span>}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="sidebar-bottom">
-          <button onClick={() => setShowNewModal(true)} className="btn-add-city">
-            <Plus size={15} /> Novo Município
-          </button>
-          <div className="user-profile">
-            <div className="avatar">AD</div>
-            <div><div className="user-name">Administrador</div><div className="user-role">Master Access</div></div>
+      {/* ─── SIDEBAR V3 LIGHT ─────────────────────────────────── */}
+      <aside className="sidebar-v3">
+        <div className="brand-section">
+          <div className="brand-logo-v3">PG</div>
+          <div className="brand-info">
+            <h1>Portalgov</h1>
+            <span>Institucional V3</span>
           </div>
+        </div>
+
+        <div className="city-selector-v3" onClick={() => setCityMenuOpen(!cityMenuOpen)}>
+          <div className="city-info-v3">
+            <span className="city-label">Jurisdição Selecionada</span>
+            <span className="city-name">{selectedMunicipio ? selectedMunicipio.nome : 'Todos os Municípios'}</span>
+          </div>
+          <ChevronDown size={14} color="var(--pg-text-muted)" />
+        </div>
+
+        {cityMenuOpen && (
+          <div style={{ padding: '0 16px 16px', marginTop: -16 }}>
+            <div style={{ background: 'white', border: '1px solid var(--pg-border)', borderRadius: 12, boxShadow: '0 10px 25px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+              <button className="nav-item-v3" style={{ width: '100%', borderRadius: 0, borderBottom: '1px solid var(--pg-border-soft)' }} onClick={() => { setSelectedMunicipio(null); setCityMenuOpen(false); }}>
+                <Globe size={14} /> Todos os Municípios
+              </button>
+              {municipios.map(m => (
+                <button key={m.id} className="nav-item-v3" style={{ width: '100%', borderRadius: 0, borderBottom: '1px solid var(--pg-border-soft)' }} onClick={() => { setSelectedMunicipio(m); setCityMenuOpen(false); }}>
+                  <MapPin size={14} /> {m.nome}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <nav className="nav-section-v3">
+          <span className="text-caps" style={{ padding: '12px 12px 8px' }}>Módulos de Gestão</span>
+          {MODULES.map(mod => (
+            <button
+              key={mod.id}
+              className={`nav-item-v3 ${mod.id === activeModule ? 'active' : ''}`}
+              disabled={!mod.ready}
+              onClick={() => { if (mod.ready) setActiveModule(mod.id); }}
+            >
+              <mod.icon size={16} />
+              <span>{mod.label}</span>
+              <span className="count">{stats[mod.apiTable] || 0}</span>
+            </button>
+          ))}
+        </nav>
+
+        <button className="btn-add-city-v3" onClick={() => setShowNewModal(true)}>
+          <Plus size={16} /> Adicionar Município
+        </button>
+
+        <div className="sidebar-footer-v3">
+          <div className="admin-avatar-v3">DB</div>
+          <div className="admin-info-v3">
+            <span className="admin-name">Delano Barreto</span>
+            <span className="admin-role">Gestor de Tecnologia</span>
+          </div>
+          <div className="status-dot-online"></div>
         </div>
       </aside>
 
-      {/* ─── MAIN CONTENT ─────────────────────────────────── */}
+      {/* ─── MAIN ZONE V3 LIGHT ────────────────────────────────── */}
       {editingItem ? (
-        <FullScreenEditor 
-          item={editingItem} 
-          module={activeModule} 
-          onClose={() => setEditingItem(null)} 
+        <FullScreenEditor
+          item={editingItem}
+          module={activeModule}
+          onClose={() => setEditingItem(null)}
           onSave={handleSaveEdit}
           onDelete={() => handleDeleteItem(editingItem)}
         />
       ) : (
-        <main className="main-viewport">
-          <header className="main-header">
-            <button className="toggle-btn" onClick={() => setSidebarOpen(!sidebarOpen)}><Menu size={18} /></button>
-            <div className="header-info">
-              <h2>{selectedMunicipio ? selectedMunicipio.nome : 'Painel de Controle Nacional'}</h2>
-              <div className="header-meta">
-                <span className="status-live"><div className="pulse" /> LIVE SYNC</span>
-                <span className="info-text">{selectedMunicipio ? (selectedMunicipio.url_base || 'Portal não configurado') : `Gerenciando ${stats.noticias + stats.lrf + stats.secretarias} registros`}</span>
-              </div>
+        <main className="main-viewport-v3">
+          <header className="topbar-v3">
+            <div className="page-title-v3">
+              Administração / <span style={{ color: 'var(--pg-text-muted)', fontWeight: 400 }}>{currentMod?.label}</span>
             </div>
-            <div className="header-stats">
-              <div className="h-stat-item"><span className="h-label">Registros</span><span className="h-value">{currentCount}</span></div>
-              <div className="h-stat-divider" />
-              <div className="h-stat-item"><span className="h-label">Storage</span><span className="h-value">{storageMB}<small>MB</small></span></div>
+
+            <div className="live-sync-badge">
+              <div className="dot"></div>
+              <span>Live Sync Active</span>
+            </div>
+
+            <div className="header-metrics-v3">
+              <div className="metric-item-v3">
+                <span className="metric-label-v3">Base Indexada</span>
+                <span className="metric-value-v3">{(stats.noticias + stats.lrf + (stats.secretarias || 0)).toLocaleString()}</span>
+              </div>
+              <div className="header-divider-v3"></div>
+              <div className="metric-item-v3">
+                <span className="metric-label-v3">Storage Local</span>
+                <span className="metric-value-v3" style={{ color: 'var(--pg-orange)' }}>{storageMB} MB</span>
+              </div>
             </div>
           </header>
 
-
-          {/* NOVAS TABS DE STATUS (Requisito do Print 1) */}
-          <div className="status-tabs">
-            {['Todos', 'Publicado', 'Rascunho', 'Arquivado'].map(st => (
-              <button key={st} className={`status-tab ${statusFilter === st ? 'active' : ''}`} onClick={() => setStatusFilter(st)}>
-                {st} {st === 'Todos' ? '' : `(${dataList.filter(i => (i.status||'rascunho') === st.toLowerCase()).length})`}
-              </button>
-            ))}
-          </div>
-
-          <div className="action-toolbar" style={{ marginTop: -12 }}>
-            <div className="toolbar-left">
-              <div className="search-input-wrapper">
-                <Search size={15} />
-                <input placeholder={`Buscar em ${currentMod.label}...`} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+          <div className="content-area-v3">
+            {/* KPIs */}
+            <div className="kpi-grid-v3">
+              <div className="kpi-card-v3">
+                <span className="kpi-label-v3">Volume Publicado</span>
+                <span className="kpi-value-v3">{metrics.publicados}</span>
+                <div className="kpi-sub-v3" style={{ color: 'var(--pg-green)' }}>
+                  <CheckCircle2 size={10} /> {metrics.percentPub.toFixed(1)}% de eficiência
+                </div>
+                <div className="progress-bar-v3">
+                  <div className="progress-fill-v3" style={{ width: `${metrics.percentPub}%`, background: 'var(--pg-green)' }}></div>
+                </div>
               </div>
-              
-              <div className="select-wrapper">
-                <select value={scrapeLimit} onChange={e => setScrapeLimit(parseInt(e.target.value))} disabled={isScraping}>
-                  { [5, 20, 50, 0].map(v => <option key={v} value={v}>{v === 0 ? 'Tudo' : `Coletar ${v}`}</option>) }
-                </select>
+              <div className="kpi-card-v3">
+                <span className="kpi-label-v3">Fila de Sincronia</span>
+                <span className="kpi-value-v3">{metrics.pendentes}</span>
+                <div className="kpi-sub-v3" style={{ color: 'var(--pg-yellow)' }}>
+                  <Clock size={10} /> Itens em Rascunho
+                </div>
+                <div className="progress-bar-v3">
+                  <div className="progress-fill-v3" style={{ width: `${(metrics.pendentes / (metrics.total || 1)) * 100}%`, background: 'var(--pg-yellow)' }}></div>
+                </div>
               </div>
-
-              {isScraping ? (
-                <button className="btn-stop" onClick={handleCancelScrape}><X size={15} /> Parar Coleta</button>
-              ) : (
-                <button className="btn-primary" onClick={handleScrape} disabled={!actionsEnabled}><RefreshCcw size={15} /> Iniciar Coleta</button>
-              )}
-
-              <div className="bulk-dropdown-wrapper" style={{ position: 'relative' }}>
-                <button 
-                  className="btn-outline" 
-                  onClick={() => {
-                    if (selectedItems.length === 0) {
-                      appendLog('⚠️ Selecione um ou mais registros na tabela para realizar ações em lote.');
-                      return;
-                    }
-                    setDropdownBulkOpen(!dropdownBulkOpen);
-                  }}
-                  style={{ background: selectedItems.length > 0 ? 'var(--navy-50)' : '#fff', borderColor: selectedItems.length > 0 ? 'var(--navy-200)' : 'var(--border)' }}
-                >
-                  <ListChecks size={15} /> Ações em Lote {selectedItems.length > 0 && `(${selectedItems.length})`}
-                  <ChevronDown size={14} className={`chevron ${dropdownBulkOpen ? 'open' : ''}`} />
-                </button>
-                {dropdownBulkOpen && (
-                  <div className="selector-dropdown floating" style={{ left: 0, top: 'calc(100% + 8px)', width: 220, zIndex: 1000, position: 'absolute' }}>
-                    <div className="dropdown-list">
-                      <div className="dropdown-label" style={{ padding: '8px 12px', fontSize: 10, fontWeight: 800, color: 'var(--text-muted)' }}>MUDAR STATUS</div>
-                      <button className="dropdown-item" onClick={() => handleBulkStatus('publicado')}><CheckCircle2 size={14} color="#10b981" /> Publicar Selecionados</button>
-                      <button className="dropdown-item" onClick={() => handleBulkStatus('rascunho')}><Pencil size={14} color="#f59e0b" /> Mover para Rascunho</button>
-                      <button className="dropdown-item" onClick={() => handleBulkStatus('arquivado')}><HardDrive size={14} color="#6b7280" /> Arquivar Selecionados</button>
-                      <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
-                      <button className="dropdown-item" style={{ color: '#dc2626' }} onClick={handleDeleteMultiple}><Trash2 size={14} /> Excluir Selecionados</button>
-                    </div>
-                  </div>
-                )}
+              <div className="kpi-card-v3">
+                <span className="kpi-label-v3">Última Atividade</span>
+                <span className="kpi-value-v3" style={{ fontSize: 16, marginTop: 4 }}>{metrics.lastSync}</span>
+                <div className="kpi-sub-v3" style={{ color: 'var(--pg-blue)' }}>
+                  <Database size={10} /> {selectedMunicipio ? selectedMunicipio.nome : 'Banco Global'}
+                </div>
+                <div className="progress-bar-v3">
+                  <div className="progress-fill-v3" style={{ width: '100%', background: 'var(--pg-blue)' }}></div>
+                </div>
               </div>
             </div>
 
-            <div className="toolbar-right">
-              <button className="btn-danger-outline" onClick={handleClearData} disabled={!actionsEnabled}><Trash2 size={15} /> Limpar Módulo</button>
-            </div>
-          </div>
-
-          <div className="content-pane" style={{ padding: '0 32px 32px', gap: 24 }}>
-            <div className="table-container shadow-sm">
-              <div className="table-header">
-                <div className="th-col col-check">
-                  <input type="checkbox" checked={sortedData.length > 0 && selectedItems.length === sortedData.length} onChange={e => setSelectedItems(e.target.checked ? sortedData : [])} />
+            {/* Content Table */}
+            <div className="table-wrapper-v3">
+              <div className="table-header-v3">
+                <div className="search-box-v3">
+                  <Search size={14} color="var(--pg-text-muted)" />
+                  <input placeholder="Buscar nesta coleção..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
                 </div>
-                <div className="th-col col-main flex-grow" onClick={() => requestSort('titulo')}>
-                  {activeModule === 'secretarias' ? 'Secretaria / Orgão' : 'Título'} {renderSortIcon('titulo')}
+
+                <div className="filter-tabs-v3">
+                  {['Todos', 'Publicado', 'Rascunho'].map(st => (
+                    <button key={st} className={`filter-tab-v3 ${statusFilter === st ? 'active' : ''}`} onClick={() => setStatusFilter(st)}>
+                      {st} <span className="tab-count">{dataList.filter(i => (i.status || 'rascunho') === st.toLowerCase()).length}</span>
+                    </button>
+                  ))}
                 </div>
-                <div className="th-col col-meta" onClick={() => requestSort('ano')}>Exerc. {renderSortIcon('ano')}</div>
-                <div className="th-col col-meta">Status</div>
-                <div className="th-col col-ops">Operações</div>
-              </div>
 
-              <div className="table-body">
-                {sortedData.length === 0 ? (
-                  <div className="empty-state">
-                    <div className="empty-icon"><Info size={40} /></div>
-                    <h3>Sem itens para exibir</h3>
-                    <p>Use o filtro acima ou colete dados novos.</p>
-                  </div>
-                ) : sortedData.map(item => (
-                  <div key={item.id} className={`tr-row ${selectedItems.some(i => i.id === item.id) ? 'selected' : ''}`} onClick={() => setEditingItem(item)}>
-                    <div className="td-col col-check" onClick={e => e.stopPropagation()}>
-                      <input type="checkbox" checked={selectedItems.some(i => i.id === item.id)} onChange={e => setSelectedItems(e.target.checked ? [...selectedItems, item] : selectedItems.filter(i => i.id !== item.id))} />
-                    </div>
+                <div className="table-actions-v3">
+                  {isScraping ? (
+                    <button className="btn-pg-primary" style={{ background: 'var(--pg-red)' }} onClick={handleCancelScrape}>
+                      <X size={14} /> Abortar Coleta
+                    </button>
+                  ) : (
+                    <button className="btn-pg-primary" onClick={handleScrape} disabled={!actionsEnabled}>
+                      <RefreshCcw size={14} /> Coletar {scrapeLimit} itens
+                    </button>
+                  )}
 
-                    {activeModule === 'secretarias' ? (
-                      <div className="td-col col-main secretaria-cell">
-                        <div className="sec-column-left">
-                          <div className="sec-avatar">{item.foto_url ? <img src={item.foto_url} alt="G" /> : <User size={20} />}</div>
-                          <div className="sec-info">
-                            <div className="sec-name">{item.nome_secretaria}</div>
-                            <div className="sec-meta"><span className="meta-line"><strong>Titular:</strong> {item.nome_responsavel}</span></div>
-                          </div>
-                        </div>
-                        <div className="sec-column-center">
-                          <div className="sec-contact-stack">
-                            <span className="meta-line"><Mail size={12} /> {item.email || 'N/A'}</span>
-                            <span className="meta-line"><Phone size={12} /> {item.telefone || 'N/A'}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="td-col col-main generic-cell">
-                        {activeModule === 'noticias' && (
-                          <div className="row-thumb">{item.imagem_url ? <img src={item.imagem_url} alt="T" /> : <Database size={18} />}</div>
-                        )}
-                        <div className="row-text">
-                          <div className="row-title">{item.titulo}</div>
-                          <div className="row-excerpt">{(item.resumo || item.conteudo || '').substring(0, 90)}...</div>
-                        </div>
+                  <div style={{ position: 'relative' }}>
+                    <button className="btn-pg-ghost" onClick={() => setDropdownBulkOpen(!dropdownBulkOpen)}>
+                      <ListChecks size={14} /> Lote {selectedItems.length > 0 && `(${selectedItems.length})`}
+                    </button>
+                    {dropdownBulkOpen && (
+                      <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 8, background: 'white', border: '1px solid var(--pg-border)', borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.1)', overflow: 'hidden', zIndex: 100, width: 200 }}>
+                        <button className="nav-item-v3" style={{ width: '100%', borderRadius: 0, borderBottom: '1px solid var(--pg-border-soft)' }} onClick={() => handleBulkStatus('publicado')}>Publicar Selecionados</button>
+                        <button className="nav-item-v3" style={{ width: '100%', borderRadius: 0, borderBottom: '1px solid var(--pg-border-soft)' }} onClick={() => handleBulkStatus('rascunho')}>Mover para Rascunho</button>
+                        <button className="nav-item-v3" style={{ width: '100%', borderRadius: 0, color: 'var(--pg-red)' }} onClick={handleDeleteMultiple}>Remover Permanentemente</button>
                       </div>
                     )}
+                  </div>
+                  
+                  <button className="btn-pg-danger" onClick={handleClearData} disabled={!actionsEnabled} title="Limpar Módulo">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
 
-                    <div className="td-col col-meta">{getExercicio(item)}</div>
-                    <div className="td-col col-meta">
-                      <span className={`badge ${item.status === 'publicado' ? 'badge-stats' : 'badge-news'}`} style={{ textTransform: 'capitalize' }}>
+              <div className="table-grid-header">
+                <div className="col-label">Select</div>
+                <div className="col-label">Capa</div>
+                <div className="col-label">Identificação / Título</div>
+                <div className="col-label" style={{ textAlign: 'center' }}>Exerc.</div>
+                <div className="col-label">Status</div>
+                <div className="col-label" style={{ textAlign: 'right' }}>Ações</div>
+              </div>
+
+              <div className="table-body-v3">
+                {sortedData.length === 0 ? (
+                  <div style={{ padding: 60, textAlign: 'center' }}>
+                    <div className="text-caps" style={{ marginBottom: 12 }}>Nenhum dado encontrado</div>
+                    <p style={{ color: 'var(--pg-text-secondary)', fontSize: 11 }}>Inicie uma coleta ou mude os filtros para visualizar registros.</p>
+                  </div>
+                ) : sortedData.map(item => (
+                  <div key={item.id} className="table-row-v3" onClick={() => setEditingItem(item)}>
+                    <div onClick={e => e.stopPropagation()}>
+                      <input type="checkbox" checked={selectedItems.some(si => si.id === item.id)} onChange={() => {
+                        if (selectedItems.some(si => si.id === item.id)) setSelectedItems(selectedItems.filter(si => si.id !== item.id));
+                        else setSelectedItems([...selectedItems, item]);
+                      }} />
+                    </div>
+                    <div className="thumb-v3">
+                      {(item.imagem_url || item.foto_url) ? (
+                        <img src={item.imagem_url || item.foto_url} alt="" />
+                      ) : (
+                        <div className="text-caps" style={{ fontSize: 8 }}>FILE</div>
+                      )}
+                    </div>
+                    <div className="row-info-v3">
+                      <div className="row-title-v3">{item.titulo || item.nome_secretaria}</div>
+                      <div className="row-desc-v3">{item.autor || item.tipo || 'Sistema'} • {formatDate(item.criado_em)}</div>
+                    </div>
+                    <div className="row-meta-v3">{getExercicio(item)}</div>
+                    <div>
+                      <span className={`status-badge-v3 status-${(item.status || 'rascunho')}-v3`}>
                         {item.status || 'rascunho'}
                       </span>
                     </div>
-
-                    <div className="td-col col-ops" onClick={e => e.stopPropagation()}>
-                      <button className="op-btn" onClick={() => setEditingItem(item)}><Pencil size={14} /></button>
-                      <button className="op-btn" onClick={() => window.open(item.url_original || item.url_origem, '_blank')}><ExternalLink size={14} /></button>
-                      <button className="op-btn delete" onClick={() => handleDeleteItem(item)}><Trash2 size={14} /></button>
+                    <div className="row-ops-v3" onClick={e => e.stopPropagation()}>
+                      <button className="action-btn-v3 edit" onClick={() => setEditingItem(item)}><Pencil size={12} /></button>
+                      <a href={item.link_original || item.url_original} target="_blank" rel="noreferrer" className="action-btn-v3 view"><ExternalLink size={12} /></a>
+                      <button className="action-btn-v3 del" onClick={() => handleDeleteItem(item)}><Trash2 size={12} /></button>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="terminal-pane">
-              <div className="terminal-head">
-                <div className="term-title"><Terminal size={14} /> Log do Coletor</div>
-                {isScraping && <span className="term-active">EM EXECUÇÃO</span>}
-              </div>
-              <div className="terminal-body" ref={logRef}>
-                {logs.split('\n').map((line, i) => (
-                  <div key={i} className={`log-line ${classifyLog(line)}`}>{line}</div>
                 ))}
               </div>
             </div>
           </div>
         </main>
       )}
+
+      {/* ─── LOG PANEL V3 LIGHT ──────────────────────────────── */}
+      <aside className="log-panel-v3">
+        <div className="log-header-v3">
+          <div className="log-active-dot"></div>
+          <h2>Console de Operações</h2>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+             <button className="action-btn-v3" onClick={() => setLogs('Painel limpo...\n')}><Eraser size={12} /></button>
+          </div>
+        </div>
+        <div className="log-body-v3" ref={logRef}>
+          {logs.split('\n').map((line, i) => (
+            <div key={i} className={`log-entry ${classifyLog(line)}`}>
+               <span className="timestamp">[{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}]</span>
+               {line}
+            </div>
+          ))}
+          <div className="log-cursor"></div>
+        </div>
+      </aside>
 
       {showNewModal && <NewMunicipioModal onClose={() => setShowNewModal(false)} onCreated={handleMunicipioCreated} />}
     </div>
