@@ -14,7 +14,7 @@ export const usePortalStore = create<PortalState>()(
   persist(
     (set) => ({
       municipioAtivo: null,
-      logPanelOpen: true,
+      logPanelOpen: false, // GAP 9 CORRIGIDO: não abre automaticamente
       activeModule: 'dashboard',
       setMunicipioAtivo: (municipio) => set({ municipioAtivo: municipio }),
       setLogPanelOpen: (open) => set({ logPanelOpen: open }),

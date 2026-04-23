@@ -3,19 +3,8 @@
 import { useRouter, useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { 
-  ArrowLeft, 
-  Save, 
-  Check, 
-  ChevronRight,
-  Clock,
-  Hash,
-  UploadCloud,
-  FileText,
-  Trash2,
-  User,
-  Mail,
-  Phone,
-  Watch
+  ArrowLeft, Save, Check, ChevronRight, Hash, X,
+  UploadCloud, FileText, Trash2, Clock, User, Mail, Phone, Watch
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
@@ -92,191 +81,175 @@ export default function EditSecretariaPage() {
   if (isLoading) return <div className="p-8">Carregando...</div>;
 
   return (
-    <div className="unified-editor-shell">
-      {/* ── Header Corporativo Unificado (Sticky Glass) ────────────────────────────── */}
-      <header className="unified-header flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="flex items-center gap-6">
+    <div className="flex flex-col h-full bg-bg-main">
+      {/* ── Main Header ────────────────────────────────────────────── */}
+      <header className="px-8 pt-6 pb-4 bg-white flex items-center justify-between border-b border-border-color mb-6 mx-[-32px] mt-[-32px]">
+        <div className="flex items-center gap-4">
           <button 
             onClick={() => router.push('/secretarias')}
-            className="w-12 h-12 flex items-center justify-center rounded-xl bg-white border border-[var(--color-border-soft)] text-[var(--color-ink)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-all shadow-sm group"
+            className="flex items-center justify-center w-8 h-8 rounded hover:bg-slate-100 text-slate-500 transition-colors"
+            title="Voltar"
           >
-            <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+            <ArrowLeft size={20} />
           </button>
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="label-caps !text-[9px] !tracking-[0.2em] opacity-50">Estrutura Institucional</span>
-              <ChevronRight size={10} className="text-slate-300" />
-              <span className="label-caps !text-[9px] !text-[var(--color-primary)] !tracking-[0.2em] font-black">Gestão de Órgãos</span>
+            <h2 className="text-2xl font-bold text-city-hall-blue tracking-tight m-0 leading-none">
+              {id === 'new' ? 'Nova Secretaria' : 'Editar Secretaria'}
+            </h2>
+            <div className="text-[12px] text-slate-500 mt-1">
+              Preencha os campos abaixo para {id === 'new' ? 'criar' : 'atualizar'} o órgão.
             </div>
-            <h1 className="text-2xl font-black tracking-tight text-[var(--color-ink)]">
-              {id === 'new' ? 'Novo Órgão' : 'Refinar Secretaria'}
-            </h1>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <button 
             onClick={() => router.push('/secretarias')}
-            className="px-6 py-3 text-[10px] font-black text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-widest"
+            className="px-4 py-2 border border-border-color bg-white rounded-md text-[13px] font-semibold text-text-primary hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
           >
-            Descartar
+            <X size={15} />
+            Cancelar
           </button>
           <button 
-            onClick={() => saveMutation.mutate({ ...formData, status: 'rascunho' })}
-            className="px-6 py-3 bg-white border border-[var(--color-border-soft)] text-[var(--color-ink)] rounded-xl text-[10px] font-black uppercase tracking-[0.15em] hover:border-[var(--color-primary)] transition-all flex items-center gap-2"
+            onClick={() => saveMutation.mutate(formData)}
+            className="px-4 py-2 bg-city-hall-accent text-white rounded-md text-[13px] font-medium hover:bg-city-hall-blue transition-colors flex items-center gap-2 shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
           >
-            <Save size={14} />
-            Rascunho
-          </button>
-          <button 
-            onClick={() => saveMutation.mutate({ ...formData, status: 'publicado' })}
-            className="px-8 py-3.5 bg-[var(--color-primary)] text-white rounded-xl text-[10px] font-black uppercase tracking-[0.15em] shadow-[var(--shadow-primary)] hover:bg-[var(--color-primary-hover)] transition-all flex items-center gap-2 active:scale-95"
-          >
-            <Check size={16} />
-            Atualizar Órgão
+            <Save size={15} />
+            Salvar Alterações
           </button>
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 px-12 pb-20">
-        {/* Coluna Esquerda: Dados Institucionais */}
-        <div className="lg:col-span-8 space-y-12">
-          <section className="space-y-10">
-            <div className="space-y-2">
-              <label className="label-caps !text-[9px] text-slate-400 font-bold">Denominação da Secretaria</label>
+      {/* ── Body ─────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-12">
+        
+        {/* Coluna Principal */}
+        <div className="lg:col-span-2 bg-white border border-border-color rounded-xl p-6 shadow-[0_1px_3px_rgba(0,0,0,0.05)] flex flex-col gap-5">
+          <div className="space-y-1.5">
+            <label className="text-[13px] font-semibold text-slate-700">Denominação da Secretaria</label>
+            <input 
+              id="field-nome"
+              value={formData.nome}
+              onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('field-secretario')?.focus(); } }}
+              className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors"
+              placeholder="Ex: Secretaria Municipal de Educação"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="space-y-1.5">
+              <label className="text-[13px] font-semibold text-slate-700 flex items-center gap-2">
+                <User size={14} className="text-city-hall-blue" /> Responsável / Titular
+              </label>
               <input 
-                value={formData.nome}
-                onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                className="w-full bg-transparent border-b-2 border-slate-100 focus:border-[var(--color-primary)] py-4 text-4xl font-black text-[var(--color-ink)] outline-none transition-all placeholder:text-slate-100 tracking-tight"
-                placeholder="Ex: Secretaria de Saúde..."
+                id="field-secretario"
+                value={formData.secretario}
+                onChange={(e) => setFormData({ ...formData, secretario: e.target.value })}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('field-email')?.focus(); } }}
+                className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors"
+                placeholder="Nome do Secretário(a)"
               />
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
-              <div className="space-y-2">
-                <label className="label-caps !text-[9px] text-slate-400 font-bold flex items-center gap-2">
-                  <User size={12} className="text-[var(--color-primary)]" /> Secretário(a)
-                </label>
-                <input 
-                  value={formData.secretario}
-                  onChange={(e) => setFormData({ ...formData, secretario: e.target.value })}
-                  className="w-full bg-transparent border-b border-slate-100 py-2 text-md font-bold text-[var(--color-ink)] outline-none focus:border-[var(--color-primary)] transition-all"
-                  placeholder="Titular da pasta"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="label-caps !text-[9px] text-slate-400 font-bold flex items-center gap-2">
-                  <Mail size={12} className="text-[var(--color-primary)]" /> E-mail
-                </label>
-                <input 
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full bg-transparent border-b border-slate-100 py-2 text-md font-bold text-[var(--color-ink)] outline-none focus:border-[var(--color-primary)] transition-all"
-                  placeholder="contato@..."
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="label-caps !text-[9px] text-slate-400 font-bold flex items-center gap-2">
-                  <Phone size={12} className="text-[var(--color-primary)]" /> Telefone
-                </label>
-                <input 
-                  value={formData.telefone}
-                  onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
-                  className="w-full bg-transparent border-b border-slate-100 py-2 text-md font-bold text-[var(--color-ink)] outline-none focus:border-[var(--color-primary)] transition-all"
-                  placeholder="(00) 0000-0000"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="label-caps !text-[9px] text-slate-400 font-bold flex items-center gap-2">
-                  <Watch size={12} className="text-[var(--color-primary)]" /> Expediente
-                </label>
-                <input 
-                  value={formData.horario_funcionamento}
-                  onChange={(e) => setFormData({ ...formData, horario_funcionamento: e.target.value })}
-                  className="w-full bg-transparent border-b border-slate-100 py-2 text-md font-bold text-[var(--color-ink)] outline-none focus:border-[var(--color-primary)] transition-all"
-                  placeholder="08h às 17h"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-4 pt-4">
-              <label className="label-caps !text-[9px] text-slate-400 font-bold flex items-center gap-2">
-                <FileText size={12} className="text-[var(--color-primary)]" /> Competências Legais
+            <div className="space-y-1.5">
+              <label className="text-[13px] font-semibold text-slate-700 flex items-center gap-2">
+                <Mail size={14} className="text-city-hall-blue" /> E-mail de Contato
               </label>
-              <div className="bg-white rounded-3xl border border-[var(--color-border-soft)] shadow-sm overflow-hidden min-h-[400px]">
-                <RichTextEditor 
-                  content={formData.descricao}
-                  onChange={(html) => setFormData({ ...formData, descricao: html })}
-                />
-              </div>
+              <input 
+                id="field-email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('field-telefone')?.focus(); } }}
+                className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors"
+                placeholder="exemplo@municipio.gov.br"
+              />
             </div>
-          </section>
+            <div className="space-y-1.5">
+              <label className="text-[13px] font-semibold text-slate-700 flex items-center gap-2">
+                <Phone size={14} className="text-city-hall-blue" /> Telefone
+              </label>
+              <input 
+                id="field-telefone"
+                value={formData.telefone}
+                onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('field-horario')?.focus(); } }}
+                className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors"
+                placeholder="(00) 0000-0000"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[13px] font-semibold text-slate-700 flex items-center gap-2">
+                <Watch size={14} className="text-city-hall-blue" /> Horário de Funcionamento
+              </label>
+              <input 
+                id="field-horario"
+                value={formData.horario_funcionamento}
+                onChange={(e) => setFormData({ ...formData, horario_funcionamento: e.target.value })}
+                className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors"
+                placeholder="Ex: Seg a Sex, 08h às 14h"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[13px] font-semibold text-slate-700 flex items-center gap-2">
+              <FileText size={14} className="text-city-hall-blue" /> Competências e Atribuições
+            </label>
+            <div className="bg-white rounded-md border border-border-color overflow-hidden min-h-[400px] focus-within:ring-2 focus-within:ring-city-hall-accent/50 focus-within:border-city-hall-accent transition-colors">
+              <RichTextEditor 
+                content={formData.descricao}
+                onChange={(html) => setFormData({ ...formData, descricao: html })}
+              />
+            </div>
+          </div>
         </div>
 
-        {/* Coluna Direita: Metadados & Status */}
-        <div className="lg:col-span-4 space-y-10">
-          <div className="space-y-10 sticky top-32">
-            <div className="space-y-4">
-              <label className="label-caps !text-[9px] text-slate-400 font-bold px-1">Visibilidade</label>
-              <div className="p-1 bg-slate-50 rounded-xl flex gap-1 border border-slate-100">
-                {['rascunho', 'publicado', 'arquivado'].map((st) => (
-                  <button
-                    key={st}
-                    onClick={() => setFormData({ ...formData, status: st })}
-                    className={`flex-1 py-2.5 text-[9px] uppercase font-black tracking-widest rounded-lg transition-all ${
-                      formData.status === st 
-                        ? 'bg-white text-[var(--color-primary)] shadow-sm' 
-                        : 'text-slate-400 hover:text-slate-900'
-                    }`}
-                  >
-                    {st}
-                  </button>
-                ))}
+        {/* Coluna Lateral */}
+        <div className="flex flex-col gap-6">
+          <div className="bg-white border border-border-color rounded-xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.05)] space-y-5">
+            <div className="space-y-1.5">
+              <label className="text-[13px] font-semibold text-slate-700">Visibilidade</label>
+              <select 
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors"
+              >
+                <option value="rascunho">Rascunho</option>
+                <option value="publicado">Publicado</option>
+                <option value="arquivado">Arquivado</option>
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[13px] font-semibold text-slate-700">Foto da Sede / Fachada</label>
+              <div className="aspect-video w-full rounded-md border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-2 bg-slate-50 hover:border-city-hall-accent hover:bg-blue-50/50 transition-all cursor-pointer group overflow-hidden">
+                {formData.imagem_url ? (
+                  <img src={formData.imagem_url} alt="Capa" className="w-full h-full object-cover" />
+                ) : (
+                  <>
+                    <UploadCloud size={24} className="text-slate-400 group-hover:text-city-hall-accent transition-colors" />
+                    <span className="text-[12px] font-medium text-slate-500 group-hover:text-city-hall-accent transition-colors">
+                      Carregar Imagem
+                    </span>
+                  </>
+                )}
               </div>
             </div>
 
-            <div className="space-y-4">
-              <label className="label-caps !text-[9px] text-slate-400 font-bold px-1">Foto da Sede</label>
-              <div className="aspect-square rounded-3xl border-2 border-dashed border-slate-100 flex flex-col items-center justify-center gap-4 bg-slate-50/30 hover:bg-white hover:border-[var(--color-primary)] transition-all cursor-pointer group shadow-sm overflow-hidden">
-                <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-slate-200 group-hover:text-[var(--color-primary)] shadow-sm group-hover:scale-110 transition-all">
-                  <UploadCloud size={24} />
-                </div>
-                <div className="text-center">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-900">Upload de Imagem</p>
-                </div>
+            <div className="pt-4 border-t border-border-color">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-[12px] font-semibold text-slate-500 flex items-center gap-1.5">
+                  <Hash size={14} /> Cód. Unidade
+                </span>
+                <span className="font-mono text-[12px] text-text-secondary">
+                  {id === 'new' ? 'AUTO' : id?.toString().slice(0, 8).toUpperCase()}
+                </span>
               </div>
-            </div>
-
-            <div className="p-8 bg-[#0f172a] rounded-[2rem] shadow-xl space-y-5 border border-slate-800 relative overflow-hidden">
-               <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 blur-[60px]" />
-               <div className="relative z-10 space-y-5">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                  <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                    <Hash size={12} /> Cód. Unidade
-                  </span>
-                  <span className="font-mono text-[9px] text-blue-400 font-bold">
-                    {id === 'new' ? '#AUTO' : id?.toString().slice(0, 8).toUpperCase()}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                    <Clock size={12} /> Última Rev.
-                  </span>
-                  <span className="text-[9px] text-slate-300 font-bold uppercase">
-                    {new Date().toLocaleDateString('pt-BR')}
-                  </span>
-                </div>
-               </div>
-            </div>
-
-            <div className="pt-4">
               <button 
                 onClick={handleDelete}
-                disabled={deleteMutation.isPending}
-                className="w-full py-4 rounded-2xl bg-red-50 text-red-500 text-[9px] font-black uppercase tracking-[0.2em] hover:bg-red-500 hover:text-white transition-all flex items-center justify-center gap-2 active:scale-95 group disabled:opacity-50"
+                className="w-full py-2.5 rounded-md border border-red-200 text-red-600 text-[13px] font-semibold hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
               >
-                <Trash2 size={16} />
-                {deleteMutation.isPending ? 'Extinguindo...' : 'Extinguir Órgão'}
+                <Trash2 size={15} /> Extinguir Órgão
               </button>
             </div>
           </div>

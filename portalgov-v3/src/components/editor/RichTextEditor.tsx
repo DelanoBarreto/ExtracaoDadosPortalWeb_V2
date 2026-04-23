@@ -1,5 +1,6 @@
 "use client";
 
+import React, { useEffect } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
@@ -24,84 +25,89 @@ interface RichTextEditorProps {
 const MenuBar = ({ editor }: { editor: any }) => {
   if (!editor) return null;
 
+  const ToolbarButton = ({ onClick, isActive, title, children }: any) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`p-1.5 rounded-lg transition-all flex items-center justify-center hover:bg-white hover:shadow-sm ${
+        isActive ? 'bg-white shadow-sm text-primary' : 'text-muted'
+      }`}
+      title={title}
+    >
+      {children}
+    </button>
+  );
+
   return (
-    <div className="flex flex-wrap gap-2 p-2 border-b border-gray-200 bg-gray-50 rounded-t-lg text-gray-600">
-      <button
-        type="button"
+    <div className="content-editor-toolbar">
+      <ToolbarButton
         onClick={() => editor.chain().focus().toggleBold().run()}
-        className={`p-1.5 rounded hover:bg-white hover:shadow-sm transition-all ${editor.isActive('bold') ? 'bg-white shadow-sm text-pg-orange' : ''}`}
+        isActive={editor.isActive('bold')}
         title="Negrito"
       >
-        <Bold size={18} />
-      </button>
-      <button
-        type="button"
+        <Bold size={16} />
+      </ToolbarButton>
+      <ToolbarButton
         onClick={() => editor.chain().focus().toggleItalic().run()}
-        className={`p-1.5 rounded hover:bg-white hover:shadow-sm transition-all ${editor.isActive('italic') ? 'bg-white shadow-sm text-pg-orange' : ''}`}
+        isActive={editor.isActive('italic')}
         title="Itálico"
       >
-        <Italic size={18} />
-      </button>
-      <button
-        type="button"
+        <Italic size={16} />
+      </ToolbarButton>
+      <ToolbarButton
         onClick={() => editor.chain().focus().toggleUnderline().run()}
-        className={`p-1.5 rounded hover:bg-white hover:shadow-sm transition-all ${editor.isActive('underline') ? 'bg-white shadow-sm text-pg-orange' : ''}`}
+        isActive={editor.isActive('underline')}
         title="Sublinhado"
       >
-        <UnderlineIcon size={18} />
-      </button>
+        <UnderlineIcon size={16} />
+      </ToolbarButton>
       
-      <div className="w-px h-6 bg-gray-300 mx-1 self-center" />
+      <div className="w-px h-4 bg-border-soft mx-1 self-center" />
 
-      <button
-        type="button"
+      <ToolbarButton
         onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-        className={`p-1.5 rounded hover:bg-white hover:shadow-sm transition-all ${editor.isActive('heading', { level: 2 }) ? 'bg-white shadow-sm text-pg-orange' : ''}`}
+        isActive={editor.isActive('heading', { level: 2 })}
         title="Título 2"
       >
-        <Heading2 size={18} />
-      </button>
-      <button
-        type="button"
+        <Heading2 size={16} />
+      </ToolbarButton>
+      <ToolbarButton
         onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-        className={`p-1.5 rounded hover:bg-white hover:shadow-sm transition-all ${editor.isActive('heading', { level: 3 }) ? 'bg-white shadow-sm text-pg-orange' : ''}`}
+        isActive={editor.isActive('heading', { level: 3 })}
         title="Título 3"
       >
-        <Heading3 size={18} />
-      </button>
+        <Heading3 size={16} />
+      </ToolbarButton>
 
-      <div className="w-px h-6 bg-gray-300 mx-1 self-center" />
+      <div className="w-px h-4 bg-border-soft mx-1 self-center" />
 
-      <button
-        type="button"
+      <ToolbarButton
         onClick={() => editor.chain().focus().toggleBulletList().run()}
-        className={`p-1.5 rounded hover:bg-white hover:shadow-sm transition-all ${editor.isActive('bulletList') ? 'bg-white shadow-sm text-pg-orange' : ''}`}
+        isActive={editor.isActive('bulletList')}
         title="Lista"
       >
-        <List size={18} />
-      </button>
-      <button
-        type="button"
+        <List size={16} />
+      </ToolbarButton>
+      <ToolbarButton
         onClick={() => editor.chain().focus().toggleOrderedList().run()}
-        className={`p-1.5 rounded hover:bg-white hover:shadow-sm transition-all ${editor.isActive('orderedList') ? 'bg-white shadow-sm text-pg-orange' : ''}`}
+        isActive={editor.isActive('orderedList')}
         title="Lista Numerada"
       >
-        <ListOrdered size={18} />
-      </button>
+        <ListOrdered size={16} />
+      </ToolbarButton>
 
-      <button
-        type="button"
+      <ToolbarButton
         onClick={() => {
           const url = window.prompt('URL do Link:');
           if (url) {
             editor.chain().focus().setLink({ href: url }).run();
           }
         }}
-        className={`p-1.5 rounded hover:bg-white hover:shadow-sm transition-all ${editor.isActive('link') ? 'bg-white shadow-sm text-pg-orange' : ''}`}
+        isActive={editor.isActive('link')}
         title="Adicionar Link"
       >
-        <LinkIcon size={18} />
-      </button>
+        <LinkIcon size={16} />
+      </ToolbarButton>
     </div>
   );
 };
@@ -123,13 +129,27 @@ export const RichTextEditor = ({ content, onChange }: RichTextEditorProps) => {
     },
   });
 
+  useEffect(() => {
+    if (editor && content !== editor.getHTML()) {
+      editor.commands.setContent(content);
+    }
+  }, [content, editor]);
+
   return (
-    <div className="border border-gray-100 rounded-3xl bg-gray-50/50 overflow-hidden focus-within:ring-2 focus-within:ring-pg-orange/10 transition-all">
+    <div className="content-editor-wrapper">
       <MenuBar editor={editor} />
       <EditorContent 
         editor={editor} 
-        className="prose prose-emerald prose-sm max-w-none p-6 min-h-[350px] focus:outline-none"
+        className="prose prose-slate prose-sm max-w-none focus:outline-none content-editor-area min-h-[350px]"
       />
+      <div className="px-4 py-2 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between rounded-b-xl">
+        <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">
+          Área de Edição Rica
+        </span>
+        <span className="text-[10px] font-medium text-slate-400">
+          Tiptap Engine v2.0
+        </span>
+      </div>
     </div>
   );
 };

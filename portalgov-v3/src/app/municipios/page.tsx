@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Plus, Search, MapPin, Globe,
-  Settings, Pencil, Trash2, RefreshCw, Palette
+  Settings, Trash2, RefreshCw
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
@@ -31,17 +31,13 @@ const buildColumns = (
     label:    'Cidade / Município',
     sortable: true,
     render:   (val, row) => (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{
-          width: 40, height: 40, borderRadius: 12, background: '#f8fafc',
-          border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: '#94a3b8'
-        }}>
-          <MapPin size={20} />
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 group-hover:text-blue-600 transition-colors">
+          <MapPin size={16} />
         </div>
         <div>
-          <p style={{ fontWeight: 600, color: 'var(--color-ink)', margin: 0 }}>{val}</p>
-          <p style={{ fontSize: '0.72rem', color: 'var(--color-muted)', fontFamily: 'var(--font-mono)' }}>/{row.slug}</p>
+          <p className="font-bold text-slate-900 text-sm leading-tight">{val}</p>
+          <p className="text-[10px] text-slate-400 font-mono">/{row.slug}</p>
         </div>
       </div>
     ),
@@ -51,16 +47,12 @@ const buildColumns = (
     label:    'Identidade',
     width:    '180px',
     render:   (_, row) => (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div className="flex items-center gap-2">
         <div
-          style={{
-            width: 16, height: 16, borderRadius: '50%',
-            background: row.cor_primaria || '#4B9C8E',
-            boxShadow: '0 0 0 2px #fff, 0 0 0 3px rgba(0,0,0,0.05)',
-            border: '1px solid rgba(0,0,0,0.1)'
-          }}
+          className="w-3 h-3 rounded-full border border-black/5 shadow-sm"
+          style={{ background: row.cor_primaria || '#4B9C8E' }}
         />
-        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', fontFamily: 'JetBrains Mono, monospace', textTransform: 'uppercase' }}>
+        <span className="text-[10px] font-bold text-slate-500 font-mono uppercase tracking-tight">
           {row.cor_primaria || '#4B9C8E'}
         </span>
       </div>
@@ -73,7 +65,9 @@ const buildColumns = (
     render: (val) => {
       const isActive = val === 'ativo';
       return (
-        <span className={isActive ? 'badge badge-published' : 'badge badge-archived'} style={{ padding: '4px 10px' }}>
+        <span className={`inline-flex items-center px-2 py-1 rounded-md text-[11px] font-semibold uppercase tracking-wider ${
+          isActive ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'
+        }`}>
           {isActive ? 'ATIVO' : 'INATIVO'}
         </span>
       );
@@ -84,25 +78,17 @@ const buildColumns = (
     label:  'Ações',
     width:  '100px',
     render: (val) => (
-      <div style={{ display: 'flex', gap: 6 }}>
+      <div className="flex gap-2 justify-end">
         <button
           onClick={(e) => { e.stopPropagation(); router.push(`/municipios/${val}/edit`); }}
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 32, height: 32, border: '1px solid #e2e8f0',
-            borderRadius: 8, background: '#fff', cursor: 'pointer', color: '#64748b',
-          }}
+          className="w-8 h-8 flex items-center justify-center rounded-md border border-border-color bg-white text-text-primary hover:bg-gray-50 transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
           title="Configurações"
         >
           <Settings size={14} />
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); onDelete(val); }}
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 32, height: 32, border: '1px solid #fecaca',
-            borderRadius: 8, background: '#fff', cursor: 'pointer', color: '#dc2626',
-          }}
+          className="w-8 h-8 flex items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
           title="Excluir"
         >
           <Trash2 size={14} />
@@ -144,7 +130,6 @@ export default function MunicipiosPage() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'tab_municipios' },
         () => {
-          console.log('🔄 Mudança detectada em tab_municipios, atualizando...');
           qc.invalidateQueries({ queryKey: ['tab_municipios'] });
         }
       )
@@ -199,75 +184,70 @@ export default function MunicipiosPage() {
   const columns = buildColumns(router, handleDelete);
 
   return (
-    <div className="flex flex-col gap-8">
-      {/* ── Header Corporativo Elite ────────────────────────────── */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8 border-b border-[var(--color-border-soft)]">
-        <div className="flex items-center gap-5">
-          <div className="w-14 h-14 rounded-2xl bg-[var(--color-primary)] text-white flex items-center justify-center shadow-[var(--shadow-primary)]">
-            <Globe size={28} />
+    <div className="flex flex-col h-full bg-bg-main">
+      {/* ── Main Header ────────────────────────────────────────────── */}
+      <header className="px-8 pt-6 pb-4 bg-white flex items-center justify-between border-b border-border-color mb-6 mx-[-32px] mt-[-32px]">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-city-hall-blue text-white flex items-center justify-center shadow-sm">
+            <Globe size={24} />
           </div>
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="label-caps !text-[10px]">Ecossistema PortalGov</span>
+            <div className="flex items-center gap-2 mb-0.5">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">PortalGov</span>
               <div className="w-1 h-1 rounded-full bg-slate-300" />
-              <span className="label-caps !text-[10px] !text-[var(--color-primary)]">Configuração Global</span>
+              <span className="text-[10px] font-bold text-city-hall-accent uppercase tracking-widest">Infraestrutura</span>
             </div>
-            <h1 className="text-3xl font-black tracking-tight text-[var(--color-ink)]">
+            <h1 className="text-xl font-bold text-city-hall-blue tracking-tight">
               Municípios & Portais
             </h1>
-            <p className="text-sm font-bold text-[var(--color-muted)] mt-1">
-              {isLoading ? 'Mapeando instâncias...' : `Gerenciando ${filtered.length} portais ativos no ecossistema`}
-            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <button 
             onClick={() => refetch()}
-            className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white border border-[var(--color-border-soft)] text-[var(--color-ink-secondary)] hover:text-[var(--color-primary)] hover:border-[var(--color-primary)] transition-all shadow-sm"
-            title="Sincronizar"
+            className="w-10 h-10 flex items-center justify-center rounded-lg border border-border-color bg-white text-text-primary hover:bg-gray-50 transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
           >
-            <RefreshCw size={18} className={isLoading ? 'animate-spin' : ''} />
+            <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
           </button>
           <button 
             onClick={() => router.push('/municipios/new/edit')}
-            className="px-8 py-3.5 bg-[var(--color-primary)] text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-[var(--shadow-primary)] hover:bg-[var(--color-primary-hover)] transition-all flex items-center gap-2 active:scale-95"
+            className="px-4 py-2 bg-city-hall-accent text-white rounded-md text-[13px] font-medium hover:bg-city-hall-blue transition-colors flex items-center gap-2 shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
           >
-            <Plus size={18} />
-            Novo Município
+            <Plus size={16} /> Novo Município
           </button>
         </div>
       </header>
 
-      {/* ── Barra de Busca ─────────────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row items-center gap-4">
-        <div className="relative flex-1 w-full group">
-          <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[var(--color-primary)] transition-colors" />
+      {/* ── Search & Filter ───────────────────────────────────────── */}
+      <div className="mb-6">
+        <div className="relative group max-w-2xl">
+          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
           <input
-            className="w-full h-14 pl-14 pr-6 bg-white border-2 border-slate-50 rounded-2xl text-sm font-bold text-[var(--color-ink)] placeholder:text-slate-400 focus:bg-white focus:border-[var(--color-primary)] focus:ring-4 focus:ring-[var(--color-primary-glow)] outline-none transition-all shadow-sm"
-            placeholder="Buscar por nome da cidade, slug ou identificador único..."
+            className="w-full h-11 pl-11 pr-4 bg-white border border-border-color rounded-md text-[13px] font-semibold text-text-primary placeholder:text-slate-400 focus:bg-white focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 outline-none transition-all shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
+            placeholder="Buscar por nome da cidade ou slug..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
           />
         </div>
       </div>
 
-      {/* ── Container da Tabela ────────────────────────────────────────── */}
-      <div className="bg-white rounded-[2.5rem] border border-[var(--color-border-soft)] shadow-xl overflow-hidden">
+      {/* ── Data Table ────────────────────────────────────────────── */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <DataTableV2
           data={filtered}
           columns={columns}
           selectedIds={selectedIds}
           onSelectChange={ids => setSelectedIds(ids as string[])}
           loading={isLoading}
-          emptyMessage="Nenhum município cadastrado no ecossistema."
+          emptyMessage="Nenhum município cadastrado."
           sortKey={sortKey}
           sortDir={sortDir}
           onSort={handleSort}
         />
       </div>
 
-      {/* ── Ações em Lote ─────────────────────────────────────── */}
+      {/* ── Bulk Actions ──────────────────────────────────────────── */}
       {selectedIds.length > 0 && (
         <BulkActionsBar
           count={selectedIds.length}
@@ -279,34 +259,34 @@ export default function MunicipiosPage() {
         />
       )}
 
-      {/* ── Modal de Confirmação ───────────────────────────────────────── */}
+      {/* ── Confirmation Modal ────────────────────────────────────── */}
       {confirmDelete && (
-        <div className="fixed inset-0 bg-[#0f172a]/60 backdrop-blur-sm z-[200] flex items-center justify-center p-6">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
           <motion.div 
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="bg-white rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl border border-slate-100"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl border border-slate-200"
           >
-            <div className="w-16 h-16 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center mb-8">
-              <Trash2 size={32} />
+            <div className="w-12 h-12 rounded-xl bg-red-50 text-red-500 flex items-center justify-center mb-6">
+              <Trash2 size={24} />
             </div>
-            <h3 className="text-2xl font-black text-[var(--color-ink)] mb-3">
+            <h3 className="text-xl font-bold text-slate-900 mb-2">
               Confirmar Exclusão
             </h3>
-            <p className="text-slate-500 font-medium leading-relaxed mb-8">
+            <p className="text-slate-500 text-sm font-medium leading-relaxed mb-8">
               {confirmDelete === 'bulk'
                 ? `Você está prestes a remover permanentemente ${selectedIds.length} municípios. Esta ação é irreversível e afetará todos os dados vinculados a estas instâncias.`
                 : 'Esta instância de município e todos os seus dados vinculados serão removidos permanentemente. Confirma esta operação?'}
             </p>
-            <div className="flex gap-4">
+            <div className="flex gap-3">
               <button 
-                className="flex-1 py-4 text-sm font-black text-slate-400 hover:text-slate-600 transition-colors"
+                className="flex-1 py-2.5 text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors uppercase tracking-widest"
                 onClick={() => setConfirmDelete(null)}
               >
                 Cancelar
               </button>
               <button
-                className="flex-1 py-4 bg-red-500 hover:bg-red-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-[0_10px_20px_rgba(239,68,68,0.2)] transition-all"
+                className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold uppercase tracking-widest shadow-lg shadow-red-200 transition-all"
                 onClick={confirmDeletion}
                 disabled={deleteMutation.isPending}
               >

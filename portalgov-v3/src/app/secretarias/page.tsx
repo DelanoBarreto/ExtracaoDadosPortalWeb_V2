@@ -1,20 +1,17 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Plus, Zap, Search, Users, Mail, Phone, Terminal, Filter,
-  ShieldCheck, Pencil, Trash2, RefreshCw, ChevronLeft, ChevronRight
+  Plus, Search, Users, Mail, Phone, Terminal, 
+  ShieldCheck, Pencil, Trash2, RefreshCw, 
+  ChevronLeft, ChevronRight, CheckCircle2, ChevronDown, ListChecks, HardDrive
 } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { usePortalStore } from '@/store/usePortalStore';
 import { supabase } from '@/lib/supabase';
 import { DataTableV2, Column } from '@/components/shared/DataTableV2';
-import { BulkActionsBar } from '@/components/shared/BulkActionsBar';
-import { useEffect } from 'react';
 import axios from 'axios';
-import { CheckCircle2 } from 'lucide-react';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────
 interface Secretaria {
@@ -37,9 +34,9 @@ const buildColumns = (
     label:    'Órgão / Secretaria',
     sortable: true,
     render:   (val, row) => (
-      <div>
-        <p style={{ fontWeight: 500, color: '#0f172a', marginBottom: 4, lineHeight: 1.4 }}>{val}</p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#f97316', fontSize: '0.72rem', fontWeight: 600 }}>
+      <div className="flex flex-col py-1">
+        <span className="text-[13px] font-semibold text-slate-900 leading-snug">{val}</span>
+        <div className="flex items-center gap-1.5 mt-1 text-[10px] font-bold text-orange-600 uppercase tracking-tight">
           <ShieldCheck size={11} />
           Gabinete Oficial
         </div>
@@ -49,34 +46,30 @@ const buildColumns = (
   {
     key:      'nome_responsavel',
     label:    'Responsável',
-    width:    '220px',
+    width:    '200px',
     sortable: true,
     render:   (val) => (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#475569', fontWeight: 500 }}>
-        <div style={{
-          width: 32, height: 32, borderRadius: '50%', background: 'rgba(249, 115, 22, 0.1)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '0.65rem', fontWeight: 700, color: '#f97316', border: '1px solid rgba(249, 115, 22, 0.2)'
-        }}>
-          {val?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() || '??'}
+      <div className="flex items-center gap-2.5">
+        <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center text-[10px] font-bold text-orange-600 border border-orange-100 uppercase">
+          {val?.split(' ').map((n: string) => n[0]).join('').slice(0, 2) || '??'}
         </div>
-        {val || 'Não informado'}
+        <span className="text-[12px] font-medium text-slate-600">{val || 'Não informado'}</span>
       </div>
     ),
   },
   {
     key:    'contato',
     label:  'Contato',
-    width:  '240px',
+    width:  '200px',
     render: (_, row) => (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', color: '#64748b' }}>
-          <Mail size={12} />
-          {row.email || 'Email indisponível'}
+      <div className="flex flex-col gap-0.5">
+        <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+          <Mail size={11} className="text-slate-400" />
+          <span className="truncate max-w-[160px]">{row.email || '—'}</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', color: '#64748b' }}>
-          <Phone size={12} />
-          {row.telefone || 'Sem telefone'}
+        <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+          <Phone size={11} className="text-slate-400" />
+          <span>{row.telefone || '—'}</span>
         </div>
       </div>
     ),
@@ -84,43 +77,31 @@ const buildColumns = (
   {
     key:    'status',
     label:  'Status',
-    width:  '120px',
+    width:  '110px',
     render: (val) => {
-      const map: Record<string, { label: string; cls: string }> = {
-        published: { label: 'Publicado', cls: 'badge badge-published' },
-        draft:     { label: 'Rascunho', cls: 'badge badge-draft' },
-        archived:  { label: 'Arquivado', cls: 'badge badge-archived' },
-        rascunho:  { label: 'Rascunho', cls: 'badge badge-draft' },
-      };
-      const s = map[val] ?? { label: val ?? 'Rascunho', cls: 'badge badge-draft' };
-      return <span className={s.cls}>{s.label}</span>;
+      const status = val?.toLowerCase() || 'rascunho';
+      if (status === 'publicado' || status === 'published') 
+        return <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-extrabold uppercase border border-emerald-100">Publicado</span>;
+      if (status === 'arquivado' || status === 'archived') 
+        return <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-[10px] font-extrabold uppercase border border-slate-200">Arquivado</span>;
+      return <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-[10px] font-extrabold uppercase border border-amber-100">Rascunho</span>;
     },
   },
   {
-    key:    'id',
-    label:  'Ações',
+    key:    'actions',
+    label:  '',
     width:  '100px',
-    render: (val) => (
-      <div style={{ display: 'flex', gap: 6 }}>
+    render: (_, row) => (
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <button
-          onClick={(e) => { e.stopPropagation(); router.push(`/secretarias/${val}/edit`); }}
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 32, height: 32, border: '1px solid #e2e8f0',
-            borderRadius: 8, background: '#fff', cursor: 'pointer', color: '#64748b',
-          }}
-          title="Editar"
+          onClick={(e) => { e.stopPropagation(); router.push(`/secretarias/${row.id}/edit`); }}
+          className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-blue-600 hover:border-blue-200 transition-all"
         >
           <Pencil size={14} />
         </button>
         <button
-          onClick={(e) => { e.stopPropagation(); onDelete(val); }}
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 32, height: 32, border: '1px solid #fecaca',
-            borderRadius: 8, background: '#fff', cursor: 'pointer', color: '#dc2626',
-          }}
-          title="Excluir"
+          onClick={(e) => { e.stopPropagation(); onDelete(row.id); }}
+          className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-red-600 hover:border-red-200 transition-all"
         >
           <Trash2 size={14} />
         </button>
@@ -129,59 +110,57 @@ const buildColumns = (
   },
 ];
 
-// ── Página ─────────────────────────────────────────────────────────────────
 export default function SecretariasPage() {
-  const router             = useRouter();
-  const qc                 = useQueryClient();
-  const { municipioAtivo } = usePortalStore();
+  const router = useRouter();
+  const qc = useQueryClient();
+  const { municipioAtivo, setLogPanelOpen } = usePortalStore();
 
-  const [selectedIds,   setSelectedIds]   = useState<string[]>([]);
-  const [searchQuery,   setSearchQuery]   = useState('');
-  const [statusFilter,  setStatusFilter]  = useState('todos');
-  const [sortKey,       setSortKey]       = useState('nome_secretaria');
-  const [sortDir,       setSortDir]       = useState<'asc' | 'desc'>('asc');
-  const [page,          setPage]          = useState(0);
-  const [pageSize]                        = useState(20);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('Todos');
+  const [sortKey, setSortKey] = useState('nome_secretaria');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [page, setPage] = useState(0);
+  const pageSize = 20;
+  
   const [confirmDelete, setConfirmDelete] = useState<string | 'bulk' | null>(null);
-  const [confirmClear,  setConfirmClear]  = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
   const [deleteStorage, setDeleteStorage] = useState(false);
+  const [dropdownBulkOpen, setDropdownBulkOpen] = useState(false);
 
-  // ── Sincronização Realtime ───────────────────────────────────────────
+  // ── Realtime Sync ──────────────────────────────────────────────────
   useEffect(() => {
     const channel = supabase
       .channel('secretarias-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'tab_secretarias' },
-        () => {
-          console.log('🔄 Mudança detectada em tab_secretarias, atualizando...');
-          qc.invalidateQueries({ queryKey: ['secretarias'] });
-        }
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_secretarias' }, () => {
+        qc.invalidateQueries({ queryKey: ['secretarias'] });
+      })
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [qc]);
 
-  // ── Query com Paginação ──────────────────────────────────────────────
+  // ── Data Query ──────────────────────────────────────────────────────
   const { data: result, isLoading, refetch } = useQuery({
     queryKey: ['secretarias', municipioAtivo?.id, sortKey, sortDir, page, pageSize, searchQuery, statusFilter],
-    queryFn:  async () => {
-      if (!municipioAtivo?.id) return { data: [], count: 0 };
-      
+    queryFn: async () => {
       let query = supabase
         .from('tab_secretarias')
-        .select('id, nome_secretaria, nome_responsavel, email, telefone, municipio_id, status', { count: 'exact' })
-        .eq('municipio_id', municipioAtivo.id);
+        .select('id, nome_secretaria, nome_responsavel, email, telefone, municipio_id, status', { count: 'exact' });
+
+      if (municipioAtivo?.id) {
+        query = query.eq('municipio_id', municipioAtivo.id);
+      }
 
       if (searchQuery) {
         query = query.ilike('nome_secretaria', `%${searchQuery}%`);
       }
 
-      if (statusFilter !== 'todos') {
-        query = query.eq('status', statusFilter);
+      if (statusFilter !== 'Todos') {
+        let sf = statusFilter.toLowerCase();
+        if (sf === 'publicado') query = query.in('status', ['publicado', 'published']);
+        else if (sf === 'rascunho') query = query.in('status', ['rascunho', 'draft', null]);
+        else if (sf === 'arquivado') query = query.in('status', ['arquivado', 'archived']);
+        else query = query.eq('status', sf);
       }
 
       const { data, error, count } = await query
@@ -191,23 +170,30 @@ export default function SecretariasPage() {
       if (error) throw error;
       return { data: data ?? [], count: count ?? 0 };
     },
-    enabled: !!municipioAtivo?.id,
   });
 
-  const secretarias = result?.data ?? [];
+  const itens = result?.data ?? [];
   const totalItems = result?.count ?? 0;
   const totalPages = Math.ceil(totalItems / pageSize);
 
-  const filtered = secretarias;
+  // Stats
+  const { data: stats } = useQuery({
+    queryKey: ['secretarias-stats', municipioAtivo?.id],
+    queryFn: async () => {
+      let query = supabase.from('tab_secretarias').select('*', { count: 'exact', head: true });
+      if (municipioAtivo?.id) query = query.eq('municipio_id', municipioAtivo.id);
+      const res = await query;
+      return { count: res.count ?? 0 };
+    }
+  });
 
-  // ── Mutations ─────────────────────────────────────────────────────────────
+  // ── Mutations ───────────────────────────────────────────────────────
   const deleteMutation = useMutation({
     mutationFn: async (ids: string[]) => {
       await axios.post('/api/admin/delete-items', { ids, modulo: 'secretarias' });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['secretarias'] });
-      qc.invalidateQueries({ queryKey: ['dashboard-stats'] });
       setSelectedIds([]);
       setConfirmDelete(null);
     },
@@ -217,16 +203,11 @@ export default function SecretariasPage() {
     mutationFn: async () => {
       if (!municipioAtivo?.id) return;
       await axios.delete('/api/admin/clear-data', {
-        params: { 
-          municipio_id: municipioAtivo.id, 
-          modulo: 'secretarias',
-          delete_storage: deleteStorage 
-        }
+        params: { municipio_id: municipioAtivo.id, modulo: 'secretarias', delete_storage: deleteStorage }
       });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['secretarias'] });
-      qc.invalidateQueries({ queryKey: ['dashboard-stats'] });
       setConfirmClear(false);
     },
   });
@@ -238,115 +219,138 @@ export default function SecretariasPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['secretarias'] });
       setSelectedIds([]);
+      setDropdownBulkOpen(false);
     },
   });
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
-  const handleSort    = (key: string) => {
-    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-    else { setSortKey(key); setSortDir('asc'); }
-  };
-  const handleDelete  = (id: string) => setConfirmDelete(id);
-  const confirmDeletion = () => {
-    const ids = confirmDelete === 'bulk' ? selectedIds : [confirmDelete!];
-    deleteMutation.mutate(ids);
-  };
+  const columns = buildColumns(router, (id) => setConfirmDelete(id));
+  const currentCount = stats?.count || 0;
 
-  const columns = buildColumns(router, handleDelete);
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+    setPage(0);
+  };
 
   return (
-    <div className="flex flex-col gap-8">
-      {/* ── Header Corporativo Elite ────────────────────────────── */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8 border-b border-[var(--color-border-soft)]">
-        <div className="flex items-center gap-5">
-          <div className="w-14 h-14 rounded-2xl bg-[var(--color-primary)] text-white flex items-center justify-center shadow-[var(--shadow-primary)]">
-            <Users size={28} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="label-caps !text-[10px]">Portal Transparência</span>
-              <div className="w-1 h-1 rounded-full bg-slate-300" />
-              <span className="label-caps !text-[10px] !text-[var(--color-primary)]">Estrutura Organizacional</span>
-            </div>
-            <h1 className="text-3xl font-black tracking-tight text-[var(--color-ink)]">
-              Secretarias & Órgãos
-            </h1>
-            <p className="text-sm font-bold text-[var(--color-muted)] mt-1">
-              {municipioAtivo?.nome} — {isLoading ? 'Sincronizando...' : `${totalItems} departamentos cadastrados`}
-            </p>
+    <div className="flex flex-col h-full bg-bg-main">
+      {/* ── Main Header ────────────────────────────────────────────── */}
+      <header className="px-8 pt-6 pb-2 bg-white flex items-center justify-between border-b border-border-color mb-6 mx-[-32px] mt-[-32px]">
+        <div className="flex flex-col">
+          <h2 className="text-2xl font-bold text-city-hall-blue tracking-tight flex items-center gap-2">
+            {municipioAtivo ? `Secretarias: ${municipioAtivo.nome}` : 'Organograma Nacional'}
+          </h2>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-[10px] font-extrabold text-[#166534] flex items-center gap-1.5 px-2 py-0.5 bg-[#ecfdf5] rounded-full border border-emerald-200">
+              <div className="w-1.5 h-1.5 rounded-full bg-[#166534] animate-pulse" /> LIVE SYNC
+            </span>
+            <span className="text-[12px] text-slate-500 font-medium">
+              Gestão da Estrutura Organizacional e Secretariado
+            </span>
           </div>
         </div>
-
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={() => refetch()}
-            className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white border border-[var(--color-border-soft)] text-[var(--color-ink-secondary)] hover:text-[var(--color-primary)] hover:border-[var(--color-primary)] transition-all shadow-sm"
-            title="Sincronizar"
-          >
-            <RefreshCw size={18} className={isLoading ? 'animate-spin' : ''} />
-          </button>
+        
+        <div className="flex items-center gap-6">
+          <div className="text-right">
+            <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Órgãos</span>
+            <span className="font-mono text-2xl font-extrabold text-[#0f172a]">{currentCount}</span>
+          </div>
+          <div className="w-px h-8 bg-slate-200" />
           <button 
             onClick={() => router.push('/secretarias/new/edit')}
-            className="px-6 py-3.5 bg-white border-2 border-[var(--color-primary)] text-[var(--color-primary)] rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-[var(--color-primary-glow)] transition-all flex items-center gap-2"
+            className="h-10 px-4 bg-city-hall-accent text-white hover:bg-city-hall-blue rounded-md text-sm font-medium transition-colors flex items-center gap-2 shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
           >
-            <Plus size={18} />
-            Novo Registro
-          </button>
-          <button 
-            onClick={() => setConfirmClear(true)}
-            className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white border border-red-100 text-red-400 hover:text-red-600 hover:border-red-600 transition-all shadow-sm"
-            title="Limpar Todos os Dados"
-          >
-            <Trash2 size={18} />
-          </button>
-          <button 
-            onClick={() => setLogPanelOpen(true)}
-            className="px-8 py-3.5 bg-[var(--color-primary)] text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-[var(--shadow-primary)] hover:bg-[var(--color-primary-hover)] transition-all flex items-center gap-2 active:scale-95"
-          >
-            <Terminal size={18} />
-            Painel de Raspagem
+            <Plus size={16} /> Novo Órgão
           </button>
         </div>
       </header>
 
-      {/* ── Barra de Busca ─────────────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row items-center gap-4">
-        <div className="relative flex-1 w-full group">
-          <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[var(--color-primary)] transition-colors" />
-          <input
-            className="w-full h-14 pl-14 pr-6 bg-white border-2 border-slate-50 rounded-2xl text-sm font-bold text-[var(--color-ink)] placeholder:text-slate-400 focus:bg-white focus:border-[var(--color-primary)] focus:ring-4 focus:ring-[var(--color-primary-glow)] outline-none transition-all shadow-sm"
-            placeholder="Buscar por nome da secretaria, cargo ou responsável..."
-            value={searchQuery}
-            onChange={e => {
-              setSearchQuery(e.target.value);
-              setPage(0);
-            }}
-          />
-        </div>
-        <div className="relative h-14 flex items-center">
-          <Filter size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-          <select
-            value={statusFilter}
-            onChange={e => { setStatusFilter(e.target.value); setPage(0); }}
-            className="h-14 pl-11 pr-10 bg-white border-2 border-slate-100 rounded-2xl text-xs font-black uppercase tracking-wider text-[var(--color-ink)] appearance-none cursor-pointer focus:border-[var(--color-primary)] focus:ring-4 focus:ring-[var(--color-primary-glow)] outline-none transition-all shadow-sm"
+      {/* ── Status Tabs ────────────────────────────────────────────── */}
+      <div className="flex gap-6 border-b border-slate-200 mb-6 px-1">
+        {['Todos', 'Publicado', 'Rascunho', 'Arquivado'].map(st => (
+          <button 
+            key={st} 
+            className={`pb-3 text-[14px] font-medium transition-all border-b-2 ${
+              statusFilter === st 
+                ? 'text-city-hall-accent border-city-hall-accent font-bold' 
+                : 'text-text-secondary border-transparent hover:text-text-primary'
+            }`} 
+            onClick={() => { setStatusFilter(st); setPage(0); }}
           >
-            <option value="todos">Todos</option>
-            <option value="rascunho">Rascunho</option>
-            <option value="publicado">Publicado</option>
-            <option value="arquivado">Arquivado</option>
-          </select>
+            {st}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Action Toolbar ────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between gap-5 pb-4">
+        <div className="flex items-center gap-3 flex-1">
+          <div className="relative flex items-center w-[320px]">
+            <Search size={15} className="absolute left-3 text-slate-400" />
+            <input
+              className="w-full pl-9 pr-4 py-2 bg-white border border-border-color rounded-md text-[13px] outline-none focus:ring-2 focus:ring-city-hall-accent/50 focus:border-city-hall-accent transition-colors"
+              placeholder="Buscar secretarias ou responsáveis..."
+              value={searchQuery}
+              onChange={e => { setSearchQuery(e.target.value); setPage(0); }}
+            />
+          </div>
+          
+          <div className="relative">
+            <button 
+              className={`flex items-center gap-2 px-4 py-2 border rounded-md text-[12px] font-semibold transition-colors ${
+                selectedIds.length > 0 ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-slate-300 text-slate-600'
+              }`}
+              onClick={() => {
+                if (selectedIds.length === 0) return;
+                setDropdownBulkOpen(!dropdownBulkOpen);
+              }}
+            >
+              <ListChecks size={15} /> Ações em Lote {selectedIds.length > 0 && `(${selectedIds.length})`}
+              <ChevronDown size={14} />
+            </button>
+            {dropdownBulkOpen && (
+              <div className="absolute left-0 top-[calc(100%+8px)] w-[220px] bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-2">
+                <div className="px-3 py-1.5 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Mudar Status</div>
+                <button className="w-full px-4 py-2 text-left text-[13px] text-slate-700 hover:bg-slate-50 flex items-center gap-2" onClick={() => bulkStatusMutation.mutate({ ids: selectedIds, status: 'publicado' })}>
+                  <CheckCircle2 size={14} className="text-emerald-500" /> Publicar Selecionados
+                </button>
+                <button className="w-full px-4 py-2 text-left text-[13px] text-slate-700 hover:bg-slate-50 flex items-center gap-2" onClick={() => bulkStatusMutation.mutate({ ids: selectedIds, status: 'rascunho' })}>
+                  <Pencil size={14} className="text-amber-500" /> Mover para Rascunho
+                </button>
+                <button className="w-full px-4 py-2 text-left text-[13px] text-slate-700 hover:bg-slate-50 flex items-center gap-2" onClick={() => bulkStatusMutation.mutate({ ids: selectedIds, status: 'arquivado' })}>
+                  <HardDrive size={14} className="text-slate-500" /> Arquivar Selecionados
+                </button>
+                <div className="h-px bg-slate-100 my-1" />
+                <button className="w-full px-4 py-2 text-left text-[13px] text-red-600 hover:bg-red-50 flex items-center gap-2" onClick={() => setConfirmDelete('bulk')}>
+                  <Trash2 size={14} /> Excluir Selecionados
+                </button>
+              </div>
+            )}
+          </div>
         </div>
+
+        <button 
+          onClick={() => setConfirmClear(true)} 
+          disabled={!municipioAtivo}
+          className="flex items-center gap-2 px-4 py-2 bg-white text-red-600 border border-red-200 rounded-md text-[13px] font-semibold hover:bg-red-50 disabled:opacity-50 transition-colors"
+        >
+          <Trash2 size={15} /> Limpar Módulo
+        </button>
       </div>
 
       {/* ── Container da Tabela ────────────────────────────────────────── */}
-      <div className="bg-white rounded-[2.5rem] border border-[var(--color-border-soft)] shadow-xl overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex-1 flex flex-col mb-4">
         <DataTableV2
-          data={filtered}
+          data={itens}
           columns={columns}
           selectedIds={selectedIds}
           onSelectChange={ids => setSelectedIds(ids as string[])}
           loading={isLoading}
-          emptyMessage="Nenhuma secretaria encontrada para este município."
+          emptyMessage="Nenhuma secretaria encontrada."
           sortKey={sortKey}
           sortDir={sortDir}
           onSort={handleSort}
@@ -354,121 +358,73 @@ export default function SecretariasPage() {
 
         {/* ── Paginação ────────────────────────────────────────────────── */}
         {!isLoading && totalPages > 1 && (
-          <div className="flex items-center justify-between px-8 py-6 border-t border-[var(--color-border-soft)] bg-slate-50/50">
-            <div className="text-xs font-bold text-[var(--color-muted)] uppercase tracking-wider">
-              Página {page + 1} de {totalPages} — Mostrando {secretarias.length} de {totalItems} registros
+          <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 bg-slate-50 mt-auto">
+            <div className="text-[12px] font-semibold text-slate-500 uppercase tracking-wider">
+              Página {page + 1} de {totalPages} — Mostrando {itens.length} de {totalItems} registros
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setPage(p => Math.max(0, p - 1))}
                 disabled={page === 0}
-                className="w-10 h-10 flex items-center justify-center rounded-xl border border-[var(--color-border-soft)] bg-white text-[var(--color-ink)] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 transition-all"
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 transition-all"
               >
-                <ChevronLeft size={18} />
+                <ChevronLeft size={16} />
               </button>
               <button
                 onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
                 disabled={page >= totalPages - 1}
-                className="w-10 h-10 flex items-center justify-center rounded-xl border border-[var(--color-border-soft)] bg-white text-[var(--color-ink)] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 transition-all"
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 transition-all"
               >
-                <ChevronRight size={18} />
+                <ChevronRight size={16} />
               </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* ── Barra de Ações em Lote ─────────────────────────────────────── */}
-      {selectedIds.length > 0 && (
-        <BulkActionsBar
-          count={selectedIds.length}
-          loading={bulkStatusMutation.isPending || deleteMutation.isPending}
-          onPublish={() => bulkStatusMutation.mutate({ ids: selectedIds, status: 'published' })}
-          onArchive={() => bulkStatusMutation.mutate({ ids: selectedIds, status: 'archived' })}
-          onDelete={() => setConfirmDelete('bulk')}
-          onClear={() => setSelectedIds([])}
-        />
-      )}
-
-      {/* ── Modal de Confirmação de Limpeza ───────────────────────────── */}
+      {/* ── Modais de Confirmação ──────────────────────────────────────── */}
       {confirmClear && (
-        <div className="fixed inset-0 bg-[#0f172a]/60 backdrop-blur-sm z-[200] flex items-center justify-center p-6">
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="bg-white rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl border border-slate-100"
-          >
-            <div className="w-16 h-16 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center mb-8">
-              <Trash2 size={32} />
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
+          <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl border border-slate-100">
+            <div className="w-12 h-12 rounded-xl bg-red-50 text-red-500 flex items-center justify-center mb-6">
+              <Trash2 size={24} />
             </div>
-            <h3 className="text-2xl font-black text-[var(--color-ink)] mb-3">
-              Limpar Módulo Secretarias
-            </h3>
-            <p className="text-slate-500 font-medium leading-relaxed mb-6">
-              Deseja apagar TODAS as secretarias e órgãos para <strong>{municipioAtivo?.nome}</strong>? Esta ação removerá também os dados de contatos e fotos.
+            <h3 className="text-xl font-bold text-slate-900 mb-2">Limpar Secretarias</h3>
+            <p className="text-slate-500 text-sm mb-6">
+              Deseja apagar todas as secretarias do município <strong>{municipioAtivo?.nome}</strong>?
             </p>
-            
-            <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl mb-8 cursor-pointer group" onClick={() => setDeleteStorage(!deleteStorage)}>
-              <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${deleteStorage ? 'bg-red-500 border-red-500 text-white' : 'border-slate-300 bg-white'}`}>
-                {deleteStorage && <CheckCircle2 size={14} />}
+            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg mb-6 cursor-pointer" onClick={() => setDeleteStorage(!deleteStorage)}>
+              <div className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${deleteStorage ? 'bg-red-500 border-red-500 text-white' : 'border-slate-300 bg-white'}`}>
+                {deleteStorage && <CheckCircle2 size={12} />}
               </div>
-              <span className="text-xs font-black uppercase tracking-wider text-slate-600 group-hover:text-slate-900 transition-colors">Remover também fotos do Storage</span>
+              <span className="text-xs font-bold text-slate-600">Apagar também fotos do Storage</span>
             </div>
-
-            <div className="flex gap-4">
-              <button 
-                className="flex-1 py-4 text-sm font-black text-slate-400 hover:text-slate-600 transition-colors"
-                onClick={() => setConfirmClear(false)}
-              >
-                Cancelar
-              </button>
-              <button
-                className="flex-1 py-4 bg-red-500 hover:bg-red-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-[0_10px_20px_rgba(239,68,68,0.2)] transition-all"
-                onClick={() => clearDataMutation.mutate()}
-                disabled={clearDataMutation.isPending}
-              >
-                {clearDataMutation.isPending ? 'Limpando...' : 'Confirmar'}
-              </button>
+            <div className="flex gap-3">
+              <button className="flex-1 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-lg transition-colors" onClick={() => setConfirmClear(false)}>Cancelar</button>
+              <button className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-bold transition-colors" onClick={() => { clearDataMutation.mutate(); }}>Confirmar</button>
             </div>
-          </motion.div>
+          </div>
         </div>
       )}
 
-      {/* ── Modal de Confirmação ───────────────────────────────────────── */}
       {confirmDelete && (
-        <div className="fixed inset-0 bg-[#0f172a]/60 backdrop-blur-sm z-[200] flex items-center justify-center p-6">
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="bg-white rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl border border-slate-100"
-          >
-            <div className="w-16 h-16 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center mb-8">
-              <Trash2 size={32} />
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
+          <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl border border-slate-100">
+            <div className="w-12 h-12 rounded-xl bg-red-50 text-red-500 flex items-center justify-center mb-6">
+              <Trash2 size={24} />
             </div>
-            <h3 className="text-2xl font-black text-[var(--color-ink)] mb-3">
-              Confirmar Exclusão
-            </h3>
-            <p className="text-slate-500 font-medium leading-relaxed mb-8">
-              {confirmDelete === 'bulk'
-                ? `Você está prestes a remover permanentemente ${selectedIds.length} secretarias. Esta ação afetará o organograma público exibido no portal.`
-                : 'Esta secretaria será removida permanentemente. Confirma a exclusão deste órgão da estrutura municipal?'}
+            <h3 className="text-xl font-bold text-slate-900 mb-2">Excluir Órgão</h3>
+            <p className="text-slate-500 text-sm mb-6">
+              {confirmDelete === 'bulk' ? `Deseja excluir permanentemente ${selectedIds.length} secretarias?` : 'Deseja excluir permanentemente esta secretaria?'}
             </p>
-            <div className="flex gap-4">
-              <button 
-                className="flex-1 py-4 text-sm font-black text-slate-400 hover:text-slate-600 transition-colors"
-                onClick={() => setConfirmDelete(null)}
-              >
-                Cancelar
-              </button>
-              <button
-                className="flex-1 py-4 bg-red-500 hover:bg-red-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-[0_10px_20px_rgba(239,68,68,0.2)] transition-all"
-                onClick={confirmDeletion}
-                disabled={deleteMutation.isPending}
-              >
-                {deleteMutation.isPending ? 'Excluindo...' : 'Confirmar'}
-              </button>
+            <div className="flex gap-3">
+              <button className="flex-1 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-lg transition-colors" onClick={() => setConfirmDelete(null)}>Cancelar</button>
+              <button className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-bold transition-colors" onClick={() => {
+                const ids = confirmDelete === 'bulk' ? selectedIds : [confirmDelete as string];
+                deleteMutation.mutate(ids);
+              }}>Excluir</button>
             </div>
-          </motion.div>
+          </div>
         </div>
       )}
     </div>

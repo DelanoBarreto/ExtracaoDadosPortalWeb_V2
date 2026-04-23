@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useRouter, useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
@@ -6,22 +6,21 @@ import {
   ArrowLeft, 
   Save, 
   Check, 
-  X, 
   Trash2, 
-  ChevronRight,
-  Clock,
-  Eye,
-  Hash,
   UploadCloud,
-  FileText
+  Loader2,
+  X,
+  Plus
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { RichTextEditor } from '@/components/editor/RichTextEditor';
+import { usePortalStore } from '@/store/usePortalStore';
 
 export default function EditNoticiaPage() {
   const router = useRouter();
   const params = useParams();
+  const { municipioAtivo } = usePortalStore();
   const queryClient = useQueryClient();
   const id = params.id;
 
@@ -31,10 +30,16 @@ export default function EditNoticiaPage() {
     conteudo: '',
     autor: '',
     ano: new Date().getFullYear().toString(),
-    url_fonte: '',
+    data_publicacao: new Date().toISOString().split('T')[0],
+    url_original: '',
     status: 'rascunho',
-    categoria: [] as string[]
+    categoria: '',
+    imagem_url: ''
   });
+
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [newCategory, setNewCategory] = useState('');
+  const [availableCategories, setAvailableCategories] = useState<string[]>(['Geral', 'Educação', 'Saúde', 'Infraestrutura', 'Esportes', 'Cultura']);
 
   // Buscar dados da notícia
   const { data: noticia, isLoading } = useQuery({
@@ -48,36 +53,69 @@ export default function EditNoticiaPage() {
 
   useEffect(() => {
     if (noticia) {
+      let dataPub = new Date().toISOString().split('T')[0];
+      if (noticia.data_publicacao) {
+        try { dataPub = new Date(noticia.data_publicacao).toISOString().split('T')[0]; } catch(e){}
+      }
+
       setFormData({
         titulo: noticia.titulo || '',
         resumo: noticia.resumo || '',
         conteudo: noticia.conteudo || '',
         autor: noticia.autor || '',
-        ano: noticia.ano || new Date().getFullYear().toString(),
-        url_fonte: noticia.url_fonte || '',
+        ano: noticia.data_publicacao ? new Date(noticia.data_publicacao).getFullYear().toString() : new Date().getFullYear().toString(),
+        data_publicacao: dataPub,
+        url_original: noticia.url_original || '',
         status: noticia.status || 'rascunho',
-        categoria: noticia.categoria || []
+        categoria: noticia.categoria || '',
+        imagem_url: noticia.imagem_url || ''
       });
+
+      if (noticia.categoria && !availableCategories.includes(noticia.categoria)) {
+        setAvailableCategories(prev => [...prev, noticia.categoria]);
+      }
     }
   }, [noticia]);
 
-  // Mutação para salvar
+  // Mutação para salvar — distingue criação (POST) de atualização (PUT)
   const saveMutation = useMutation({
     mutationFn: async (data: any) => {
+      // Limpeza de payload: envia apenas o que existe no banco
+      const payload = {
+        titulo: data.titulo,
+        resumo: data.resumo,
+        conteudo: data.conteudo,
+        autor: data.autor,
+        data_publicacao: data.data_publicacao,
+        url_original: data.url_original,
+        status: data.status,
+        categoria: data.categoria,
+        imagem_url: data.imagem_url,
+      };
+
       if (id === 'new') {
-        return axios.post('/api/noticias', data);
+        if (!municipioAtivo?.id) {
+          throw new Error('Selecione um município ativo antes de criar uma notícia.');
+        }
+        return axios.post('/api/noticias', {
+          ...payload,
+          municipio_id: municipioAtivo.id,
+        });
       }
-      return axios.put(`/api/noticias/${id}`, data);
+      return axios.put(`/api/noticias/${id}`, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['noticias'] });
       router.push('/noticias');
-    }
+    },
+    onError: (error: any) => {
+      alert(error?.response?.data?.error || error.message || 'Erro ao salvar.');
+    },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      await axios.post('/api/admin/delete-items', { ids: [id], modulo: 'noticias' });
+      await axios.delete(`/api/noticias/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['noticias'] });
@@ -91,190 +129,280 @@ export default function EditNoticiaPage() {
     }
   };
 
-  if (isLoading) return <div className="p-8">Carregando...</div>;
+  if (isLoading) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center p-20 gap-4">
+        <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
+        <p className="text-slate-500 font-medium animate-pulse">Carregando dados da publicação...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-8">
-      {/* ── Header Corporativo Unificado ────────────────────────────── */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8 border-b border-[var(--color-border-soft)]">
-        <div className="flex items-center gap-6">
+    <div className="flex flex-col h-full bg-bg-main">
+      {/* ── Main Header ────────────────────────────────────────────── */}
+      <header className="px-8 pt-6 pb-4 bg-white flex items-center justify-between border-b border-border-color mb-6 mx-[-32px] mt-[-32px]">
+        <div className="flex items-center gap-4">
           <button 
             onClick={() => router.push('/noticias')}
-            className="w-12 h-12 flex items-center justify-center rounded-xl bg-white border border-[var(--color-border-soft)] text-[var(--color-ink)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-all shadow-sm group"
+            className="flex items-center justify-center w-8 h-8 rounded hover:bg-slate-100 text-slate-500 transition-colors"
+            title="Voltar"
           >
-            <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+            <ArrowLeft size={20} />
           </button>
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="label-caps !text-[9px] !tracking-[0.2em] opacity-50">Gestão de Conteúdo</span>
-              <ChevronRight size={10} className="text-slate-300" />
-              <span className="label-caps !text-[9px] !text-[var(--color-primary)] !tracking-[0.2em] font-black">Editor Elite</span>
+            <h2 className="text-2xl font-bold text-city-hall-blue tracking-tight m-0 leading-none">
+              {id === 'new' ? 'Nova Publicação' : 'Editar Publicação'}
+            </h2>
+            <div className="text-[12px] text-slate-500 mt-1">
+              Preencha os campos abaixo para {id === 'new' ? 'criar' : 'atualizar'} o conteúdo.
             </div>
-            <h1 className="text-2xl font-black tracking-tight text-[var(--color-ink)]">
-              {id === 'new' ? 'Nova Publicação' : 'Refinar Conteúdo'}
-            </h1>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <button 
             onClick={() => router.push('/noticias')}
-            className="px-6 py-3 text-[10px] font-black text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-widest"
+            className="px-4 py-2 border border-border-color bg-white rounded-md text-[13px] font-semibold text-text-primary hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
           >
-            Descartar
+            <X size={15} />
+            Cancelar
           </button>
           <button 
-            onClick={() => saveMutation.mutate({ ...formData, status: 'rascunho' })}
-            className="px-6 py-3 bg-white border border-[var(--color-border-soft)] text-[var(--color-ink)] rounded-xl text-[10px] font-black uppercase tracking-[0.15em] hover:border-[var(--color-primary)] transition-all flex items-center gap-2"
+            onClick={() => saveMutation.mutate(formData)}
+            className="px-4 py-2 bg-city-hall-accent text-white rounded-md text-[13px] font-medium hover:bg-city-hall-blue transition-colors flex items-center gap-2 shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
           >
-            <Save size={14} />
-            Rascunho
-          </button>
-          <button 
-            onClick={() => saveMutation.mutate({ ...formData, status: 'publicado' })}
-            className="px-8 py-3.5 bg-[var(--color-primary)] text-white rounded-xl text-[10px] font-black uppercase tracking-[0.15em] shadow-[var(--shadow-primary)] hover:bg-[var(--color-primary-hover)] transition-all flex items-center gap-2 active:scale-95"
-          >
-            <Check size={16} />
-            Publicar Agora
+            <Save size={15} />
+            Salvar Alterações
           </button>
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 pb-20">
-        {/* Coluna Esquerda: Fluxo de Escrita */}
-        <div className="lg:col-span-8 space-y-12">
-          <section className="space-y-10">
-            <div className="space-y-2">
-              <label className="label-caps !text-[9px] text-slate-400 font-bold">Título da Publicação</label>
+      {/* ── Body ─────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-12">
+        
+        {/* Coluna Principal */}
+        <div className="lg:col-span-2 bg-white border border-border-color rounded-xl p-6 shadow-[0_1px_3px_rgba(0,0,0,0.05)] flex flex-col gap-5">
+          <div className="space-y-1.5">
+            <label className="text-[13px] font-semibold text-slate-700">Título da Notícia</label>
+            <input 
+              id="field-titulo"
+              value={formData.titulo}
+              onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('field-resumo')?.focus(); } }}
+              className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors"
+              placeholder="Digite o título..."
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[13px] font-semibold text-slate-700">Resumo / Linha Fina</label>
+            <textarea 
+              id="field-resumo"
+              value={formData.resumo}
+              onChange={(e) => setFormData({ ...formData, resumo: e.target.value })}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); document.getElementById('field-autor')?.focus(); } }}
+              className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors min-h-[80px] resize-y"
+              placeholder="Digite o resumo da publicação..."
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="space-y-1.5">
+              <label className="text-[13px] font-semibold text-slate-700">Autor</label>
               <input 
-                value={formData.titulo}
-                onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
-                className="w-full bg-transparent border-b-2 border-slate-100 focus:border-[var(--color-primary)] py-4 text-4xl font-black text-[var(--color-ink)] outline-none transition-all placeholder:text-slate-100 tracking-tight"
-                placeholder="Insira um título..."
+                id="field-autor"
+                value={formData.autor}
+                onChange={(e) => setFormData({ ...formData, autor: e.target.value })}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('field-data')?.focus(); } }}
+                className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors"
+                placeholder="Ex: Redação"
               />
             </div>
-
-            <div className="space-y-2">
-              <label className="label-caps !text-[9px] text-slate-400 font-bold">Resumo Executivo</label>
-              <textarea 
-                value={formData.resumo}
-                onChange={(e) => setFormData({ ...formData, resumo: e.target.value })}
-                className="w-full bg-slate-50/30 border border-slate-100 rounded-2xl p-6 text-lg font-medium text-[var(--color-ink-secondary)] outline-none focus:bg-white focus:ring-4 focus:ring-[var(--color-primary-glow)] focus:border-[var(--color-primary)] transition-all min-h-[120px] resize-none leading-relaxed"
-                placeholder="Breve descrição..."
+            <div className="space-y-1.5">
+              <label className="text-[13px] font-semibold text-slate-700">Data de Publicação</label>
+              <input 
+                id="field-data"
+                type="date"
+                value={formData.data_publicacao}
+                onChange={(e) => setFormData({ ...formData, data_publicacao: e.target.value })}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('field-categoria')?.focus(); } }}
+                className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors"
               />
             </div>
+          </div>
 
-            <div className="space-y-4 pt-4">
-              <label className="label-caps !text-[9px] text-slate-400 font-bold flex items-center gap-2">
-                <FileText size={12} className="text-[var(--color-primary)]" /> Corpo do Conteúdo
-              </label>
-              <div className="bg-white rounded-3xl border border-[var(--color-border-soft)] shadow-sm overflow-hidden min-h-[500px]">
-                <RichTextEditor 
-                  content={formData.conteudo}
-                  onChange={(html) => setFormData({ ...formData, conteudo: html })}
-                />
-              </div>
+          <div className="space-y-1.5">
+            <label className="text-[13px] font-semibold text-slate-700">Categoria</label>
+            <div className="flex gap-2">
+              <select
+                id="field-categoria"
+                value={formData.categoria}
+                onChange={(e) => setFormData({ ...formData, categoria: e.target.value })}
+                className="flex-1 bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors"
+              >
+                <option value="">Selecione uma categoria...</option>
+                {availableCategories.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+              <button
+                onClick={() => setIsCategoryModalOpen(true)}
+                className="px-3 py-2 border border-slate-300 rounded-md bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-600 transition-colors"
+                title="Nova Categoria"
+              >
+                <Plus size={16} />
+              </button>
             </div>
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-10 border-t border-slate-50">
-              <div className="space-y-2">
-                <label className="label-caps !text-[9px] text-slate-400 font-bold">Autor</label>
-                <input 
-                  value={formData.autor}
-                  onChange={(e) => setFormData({ ...formData, autor: e.target.value })}
-                  className="w-full bg-transparent border-b border-slate-100 py-2 text-md font-bold text-[var(--color-ink)] outline-none focus:border-[var(--color-primary)] transition-all"
-                  placeholder="Nome do autor..."
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="label-caps !text-[9px] text-slate-400 font-bold">Ano</label>
-                <input 
-                  value={formData.ano}
-                  onChange={(e) => setFormData({ ...formData, ano: e.target.value })}
-                  className="w-full bg-transparent border-b border-slate-100 py-2 text-md font-bold text-[var(--color-ink)] outline-none focus:border-[var(--color-primary)] transition-all"
-                  placeholder="2025"
-                />
-              </div>
+          <div className="space-y-1.5 flex-1 flex flex-col">
+            <label className="text-[13px] font-semibold text-slate-700">Conteúdo Completo</label>
+            <div className="border border-slate-300 rounded-md flex-1 min-h-[400px] flex flex-col focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 transition-colors overflow-hidden">
+              <RichTextEditor 
+                content={formData.conteudo}
+                onChange={(html) => setFormData({ ...formData, conteudo: html })}
+              />
             </div>
-          </section>
+          </div>
         </div>
 
-        {/* Coluna Direita: Metadados & Status */}
-        <div className="lg:col-span-4 space-y-10">
-          <div className="space-y-10 sticky top-10">
-            <div className="space-y-4">
-              <label className="label-caps !text-[9px] text-slate-400 font-bold px-1">Fluxo de Trabalho</label>
-              <div className="p-1 bg-slate-50 rounded-xl flex gap-1 border border-slate-100">
-                {['rascunho', 'publicado', 'arquivado'].map((st) => (
-                  <button
-                    key={st}
-                    onClick={() => setFormData({ ...formData, status: st })}
-                    className={`flex-1 py-2.5 text-[9px] uppercase font-black tracking-widest rounded-lg transition-all ${
-                      formData.status === st 
-                        ? 'bg-white text-[var(--color-primary)] shadow-sm' 
-                        : 'text-slate-400 hover:text-slate-900'
-                    }`}
-                  >
-                    {st}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <label className="label-caps !text-[9px] text-slate-400 font-bold px-1">Capa da Matéria</label>
-              <div className="aspect-video rounded-3xl border-2 border-dashed border-slate-100 flex flex-col items-center justify-center gap-4 bg-slate-50/30 hover:bg-white hover:border-[var(--color-primary)] transition-all cursor-pointer group shadow-sm overflow-hidden">
-                <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-slate-200 group-hover:text-[var(--color-primary)] shadow-sm group-hover:scale-110 transition-all">
-                  <UploadCloud size={24} />
-                </div>
-                <div className="text-center">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-900">Upload Mídia</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-8 bg-[#0f172a] rounded-[2rem] shadow-xl space-y-5 border border-slate-800 relative overflow-hidden">
-               <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 blur-[60px]" />
-               <div className="relative z-10 space-y-5">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                  <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                    <Hash size={12} /> Registro
-                  </span>
-                  <span className="font-mono text-[9px] text-blue-400 font-bold">
-                    {id === 'new' ? '#AUTO' : id?.toString().slice(0, 8).toUpperCase()}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                  <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                    <Clock size={12} /> Publicação
-                  </span>
-                  <span className="text-[9px] text-slate-300 font-bold uppercase">
-                    {noticia?.data_publicacao ? new Date(noticia.data_publicacao).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                    <Eye size={12} /> Audiência
-                  </span>
-                  <span className="text-[9px] text-slate-300 font-bold">
-                    {noticia?.views || 0} acessos
-                  </span>
-                </div>
-               </div>
-            </div>
-
-            <div className="pt-4">
-              <button 
-                onClick={handleDelete}
-                className="w-full py-4 rounded-2xl bg-red-50 text-red-500 text-[9px] font-black uppercase tracking-[0.2em] hover:bg-red-500 hover:text-white transition-all flex items-center justify-center gap-2 active:scale-95 group"
+        {/* Coluna Lateral */}
+        <div className="lg:col-span-1 flex flex-col gap-6">
+          <div className="bg-white border border-border-color rounded-xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.05)] space-y-5">
+            <div className="space-y-2">
+              <label className="text-[13px] font-semibold text-slate-700 block">Status da Publicação</label>
+              <select 
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors"
               >
-                <Trash2 size={16} />
-                Excluir Registro
+                <option value="rascunho">Rascunho</option>
+                <option value="publicado">Publicado</option>
+                <option value="arquivado">Arquivado</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[13px] font-semibold text-slate-700 block">Imagem de Capa</label>
+              {formData.imagem_url ? (
+                <div className="relative w-full h-40 rounded-md overflow-hidden group border border-slate-200">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={formData.imagem_url} alt="Capa" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                    <button 
+                      onClick={() => {
+                        const url = window.prompt('Insira a nova URL da imagem:');
+                        if (url) setFormData({ ...formData, imagem_url: url });
+                      }}
+                      className="px-3 py-1.5 bg-white rounded-md text-[12px] font-medium text-slate-700 flex items-center gap-2 hover:bg-slate-50"
+                    >
+                      <UploadCloud size={14} /> Trocar Imagem
+                    </button>
+                    <button 
+                      onClick={() => setFormData({ ...formData, imagem_url: '' })}
+                      className="px-3 py-1.5 bg-red-500 text-white rounded-md text-[12px] font-medium flex items-center gap-2 hover:bg-red-600"
+                    >
+                      <Trash2 size={14} /> Remover
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div 
+                  onClick={() => {
+                    const url = window.prompt('Insira a URL da imagem:');
+                    if (url) setFormData({ ...formData, imagem_url: url });
+                  }}
+                  className="w-full h-40 bg-slate-50 border-2 border-dashed border-slate-300 rounded-md flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-slate-100 hover:border-slate-400 transition-colors"
+                >
+                  <UploadCloud size={24} className="text-slate-400" />
+                  <span className="text-[12px] font-medium text-slate-500 text-center px-4">Clique para enviar ou informar a URL da imagem</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {id !== 'new' && (
+            <div className="bg-white border border-border-color rounded-xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.05)] space-y-4">
+              <h3 className="text-[13px] font-semibold text-slate-700 m-0 pb-3 border-b border-slate-100">Informações Adicionais</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center text-[12px]">
+                  <span className="text-slate-500 font-medium">ID do Registro</span>
+                  <span className="font-mono text-slate-900">{id.slice(0, 8)}</span>
+                </div>
+                <div className="flex justify-between items-center text-[12px]">
+                  <span className="text-slate-500 font-medium">Visualizações</span>
+                  <span className="text-slate-900 font-semibold">{noticia?.views || 0}</span>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button 
+                  onClick={handleDelete}
+                  className="w-full py-2 bg-white border border-red-200 text-red-600 rounded-md text-[13px] font-semibold hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Trash2 size={15} />
+                  Excluir Registro
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+      {/* ── Modal de Nova Categoria ────────────────────────────────────────────── */}
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <h3 className="font-semibold text-slate-800 m-0">Nova Categoria</h3>
+              <button onClick={() => setIsCategoryModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium text-slate-700">Nome da Categoria</label>
+                <input 
+                  autoFocus
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newCategory.trim()) {
+                      setAvailableCategories(prev => [...prev, newCategory.trim()]);
+                      setFormData(prev => ({ ...prev, categoria: newCategory.trim() }));
+                      setNewCategory('');
+                      setIsCategoryModalOpen(false);
+                    }
+                  }}
+                  className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-[14px] text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                  placeholder="Ex: Esportes"
+                />
+              </div>
+            </div>
+            <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 flex justify-end gap-2">
+              <button 
+                onClick={() => setIsCategoryModalOpen(false)}
+                className="px-4 py-2 bg-white border border-slate-300 rounded-md text-[13px] font-medium text-slate-600 hover:bg-slate-50"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={() => {
+                  if (newCategory.trim()) {
+                    setAvailableCategories(prev => [...prev, newCategory.trim()]);
+                    setFormData(prev => ({ ...prev, categoria: newCategory.trim() }));
+                    setNewCategory('');
+                    setIsCategoryModalOpen(false);
+                  }
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md text-[13px] font-medium hover:bg-blue-700"
+              >
+                Salvar
               </button>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

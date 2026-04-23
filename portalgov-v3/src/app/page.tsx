@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   Newspaper, FileText, Building2, ArrowRight,
   RefreshCw, TrendingUp, Database, Zap, Plus,
-  AlertCircle, CheckCircle2, Clock
+  CheckCircle2, Clock, Globe
 } from 'lucide-react';
 import { usePortalStore } from '@/store/usePortalStore';
 import { supabase } from '@/lib/supabase';
@@ -18,45 +18,28 @@ interface StatCard {
   value:    number | string;
   icon:     React.ElementType;
   path:     string;
-  color:    string;
   trend:    string;
   trendUp?: boolean;
 }
 
-interface QuickAction {
-  label:  string;
-  icon:   React.ElementType;
-  path:   string;
-  color:  string;
-}
-
-// ── Formatador ─────────────────────────────────────────────────────────
-const fmt = (n: number) => n?.toLocaleString('pt-BR') ?? '—';
+const fmt = (n: number) => n?.toLocaleString('pt-BR') ?? '0';
 
 export default function DashboardPage() {
   const router = useRouter();
   const { municipioAtivo, setLogPanelOpen } = usePortalStore();
 
-  // Query de stats reais do Supabase
   const { data: stats, isLoading, refetch } = useQuery({
     queryKey: ['dashboard-stats', municipioAtivo?.id],
     queryFn: async () => {
       if (!municipioAtivo?.id) return { noticias: 0, lrf: 0, secretarias: 0 };
-
       const [n, l, s] = await Promise.all([
         supabase.from('tab_noticias').select('id', { count: 'exact', head: true }).eq('municipio_id', municipioAtivo.id),
         supabase.from('tab_lrf').select('id', { count: 'exact', head: true }).eq('municipio_id', municipioAtivo.id),
         supabase.from('tab_secretarias').select('id', { count: 'exact', head: true }).eq('municipio_id', municipioAtivo.id),
       ]);
-
-      return {
-        noticias:    n.count    ?? 0,
-        lrf:         l.count    ?? 0,
-        secretarias: s.count    ?? 0,
-      };
+      return { noticias: n.count ?? 0, lrf: l.count ?? 0, secretarias: s.count ?? 0 };
     },
     enabled: !!municipioAtivo?.id,
-    staleTime: 60_000,
   });
 
   const statCards: StatCard[] = [
@@ -65,229 +48,192 @@ export default function DashboardPage() {
       value:   isLoading ? '...' : fmt(stats?.noticias ?? 0),
       icon:    Newspaper,
       path:    '/noticias',
-      color:   'var(--color-primary)',
-      trend:   stats?.noticias ? 'Ver registros' : 'Nenhum registro',
-      trendUp: (stats?.noticias ?? 0) > 0,
+      trend:   stats?.noticias ? 'Em dia' : 'Vazio',
+      trendUp: true,
     },
     {
       label:   'Documentos LRF',
       value:   isLoading ? '...' : fmt(stats?.lrf ?? 0),
       icon:    FileText,
       path:    '/lrf',
-      color:   'var(--color-primary)',
-      trend:   stats?.lrf ? 'Sincronizado' : 'Aguardando',
-      trendUp: (stats?.lrf ?? 0) > 0,
+      trend:   'Sincronizado',
+      trendUp: true,
     },
     {
       label:   'Secretarias',
       value:   isLoading ? '...' : fmt(stats?.secretarias ?? 0),
       icon:    Building2,
       path:    '/secretarias',
-      color:   'var(--color-primary)',
-      trend:   stats?.secretarias ? 'Ativas' : 'Sem dados',
-      trendUp: (stats?.secretarias ?? 0) > 0,
+      trend:   'Estruturado',
+      trendUp: true,
     },
   ];
 
-  const quickActions: QuickAction[] = [
-    { label: '+ Notícia',    icon: Newspaper,  path: '/noticias',   color: 'var(--color-primary)' },
-    { label: '+ Doc. LRF',   icon: FileText,   path: '/lrf',        color: 'var(--color-primary)' },
-    { label: '+ Secretaria', icon: Building2,  path: '/secretarias', color: 'var(--color-primary)' },
-  ];
-
-  const handleScraper = () => {
-    setLogPanelOpen(true);
-  };
-
   return (
     <div className="flex flex-col gap-10">
-      {/* ── Header Institucional Elite ────────────────────────────── */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-8">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-            <span className="label-caps !text-[10px] !text-[var(--color-muted)]">Sistema de Gestão Ativo</span>
+      {/* ── Header ────────────────────────────────────────────────── */}
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-[#0f172a] text-white flex items-center justify-center shadow-lg">
+            <Globe size={24} />
           </div>
-          <h1 className="text-4xl font-black tracking-tight text-[var(--color-ink)] flex items-baseline gap-4">
-            {municipioAtivo ? municipioAtivo.nome : 'Configuração Inicial'}
-            <span className="text-sm font-medium text-[var(--color-primary)] opacity-60">
-              {municipioAtivo?.slug}
-            </span>
-          </h1>
-          <p className="text-[var(--color-ink-secondary)] font-medium mt-1">
-            Painel Central de Transparência e Controle Governamental
-          </p>
+          <div>
+            <div className="flex items-center gap-2 mb-0.5">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">PortalGov Cloud</span>
+              <div className="w-1 h-1 rounded-full bg-slate-300" />
+              <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Painel Administrativo</span>
+            </div>
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+              {municipioAtivo ? municipioAtivo.nome : 'Selecione um Município'}
+            </h1>
+          </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <button
             onClick={() => refetch()}
-            className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white border border-[var(--color-border-soft)] text-[var(--color-ink)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-all shadow-sm group"
-            title="Atualizar Dados"
+            className="w-10 h-10 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-blue-600 transition-all shadow-sm"
           >
-            <RefreshCw size={20} className="group-hover:rotate-180 transition-transform duration-500" />
+            <RefreshCw size={18} className={isLoading ? 'animate-spin' : ''} />
           </button>
           <button 
             onClick={() => router.push('/noticias')}
-            className="px-8 py-4 rounded-2xl bg-[var(--color-primary)] text-white text-sm font-black uppercase tracking-widest shadow-[var(--shadow-primary)] hover:bg-[var(--color-primary-hover)] transition-all flex items-center gap-3"
+            className="px-5 py-2.5 bg-[#0f172a] text-white rounded-lg text-xs font-bold uppercase tracking-widest shadow-md hover:bg-slate-800 transition-all flex items-center gap-2 active:scale-95"
           >
-            <Plus size={20} />
-            Nova Publicação
+            <Plus size={16} /> Nova Publicação
           </button>
         </div>
       </header>
 
-      {/* ── Grid de KPIs Governamentais ────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      {/* ── KPI Grid ──────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {statCards.map((card, i) => {
           const Icon = card.icon;
           return (
             <motion.div
               key={i}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.1 }}
+              transition={{ delay: i * 0.05 }}
               onClick={() => router.push(card.path)}
-              className="group cursor-pointer bg-white rounded-3xl border border-[var(--color-border-soft)] p-8 shadow-sm hover:shadow-xl hover:border-[var(--color-primary)] transition-all relative overflow-hidden"
+              className="group cursor-pointer bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:border-blue-500 hover:shadow-md transition-all"
             >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--color-primary-glow)] rounded-full -mr-16 -mt-16 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              
-              <div className="flex items-start justify-between relative z-10">
-                <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center border border-slate-100 group-hover:bg-[var(--color-primary-glow)] group-hover:border-[var(--color-primary)] transition-all">
-                  <Icon size={28} className="text-[var(--color-ink)] group-hover:text-[var(--color-primary)]" />
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center border border-slate-100 group-hover:bg-blue-50 group-hover:border-blue-100 transition-all text-slate-400 group-hover:text-blue-600">
+                  <Icon size={24} />
                 </div>
-                <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 ${
-                  card.trendUp ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-400'
+                <div className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                  card.trendUp ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'
                 }`}>
-                  {card.trendUp ? <TrendingUp size={12} /> : <Clock size={12} />}
+                  {card.trendUp ? <TrendingUp size={10} /> : <Clock size={10} />}
                   {card.trend}
                 </div>
               </div>
 
-              <div className="mt-8 relative z-10">
-                <label className="label-caps !text-[10px] mb-2">{card.label}</label>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-5xl font-black tracking-tighter text-[var(--color-ink)] group-hover:text-[var(--color-primary)] transition-colors">
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">{card.label}</label>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-3xl font-bold text-slate-900">
                     {card.value}
                   </span>
-                  <span className="text-xs font-bold text-[var(--color-muted)]">Registros</span>
+                  <span className="text-[11px] font-semibold text-slate-400 uppercase">Itens</span>
                 </div>
               </div>
 
-              <div className="mt-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-tighter text-[var(--color-primary)] opacity-0 group-hover:opacity-100 translate-x-[-10px] group-hover:translate-x-0 transition-all">
-                Abrir Módulo Completo <ArrowRight size={14} />
+              <div className="mt-4 flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-blue-600 opacity-0 group-hover:opacity-100 transition-all">
+                Acessar Módulo <ArrowRight size={12} />
               </div>
             </motion.div>
           );
         })}
       </div>
 
-      {/* ── Seção de Automação e Ações Rápidas ─────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
-        {/* Motor de Raspagem - High Tech Look */}
+      {/* ── Automation & Scraper ──────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <motion.div
-          initial={{ opacity: 0, scale: 0.98 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.3 }}
-          className="lg:col-span-7 bg-[#0f172a] rounded-[2.5rem] p-10 relative overflow-hidden shadow-2xl group"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="lg:col-span-8 bg-[#0f172a] rounded-2xl p-8 relative overflow-hidden shadow-xl"
         >
-          <div className="absolute top-0 right-0 w-full h-full bg-[radial-gradient(circle_at_80%_20%,#1d4ed833,transparent_40%)]" />
-          <div className="absolute bottom-0 left-0 w-full h-full bg-[radial-gradient(circle_at_20%_80%,#1e293b,transparent_40%)]" />
+          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 blur-[80px] pointer-events-none" />
           
           <div className="relative z-10 flex flex-col h-full justify-between gap-8">
-            <div>
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-[var(--color-primary)] rounded-xl flex items-center justify-center shadow-lg shadow-blue-900">
-                  <Zap size={20} className="text-white" />
+            <div className="max-w-md">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                  <Zap size={16} className="text-white" />
                 </div>
-                <span className="font-mono text-[10px] font-bold tracking-[0.2em] text-[var(--color-primary)] uppercase">Crawler Engine v3.0</span>
+                <span className="text-[10px] font-bold tracking-[0.2em] text-blue-400 uppercase">Crawler Engine v3.0</span>
               </div>
-              <h2 className="text-4xl font-black text-white tracking-tight mb-4">
-                Automação Inteligente <br />
-                <span className="text-slate-500">de Dados Públicos</span>
+              <h2 className="text-2xl font-bold text-white tracking-tight mb-3">
+                Sincronização de Dados Públicos
               </h2>
-              <p className="text-slate-400 text-lg max-w-md leading-relaxed">
-                Sincronize automaticamente Atos Oficiais, Notícias e Balanços LRF diretamente da fonte municipal.
+              <p className="text-slate-400 text-sm font-medium leading-relaxed">
+                Execute a coleta automatizada de Atos Oficiais e Documentos LRF diretamente dos portais municipais com validação via IA.
               </p>
             </div>
 
             <div className="flex items-center gap-6">
               <button
-                onClick={handleScraper}
-                className="px-10 py-5 bg-[var(--color-primary)] text-white rounded-2xl text-sm font-black uppercase tracking-widest shadow-[0_10px_30px_rgba(29,78,216,0.3)] hover:bg-[var(--color-primary-hover)] hover:scale-105 transition-all flex items-center gap-3"
+                onClick={() => setLogPanelOpen(true)}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg text-xs font-bold uppercase tracking-widest shadow-lg shadow-blue-900/20 hover:bg-blue-500 transition-all flex items-center gap-2 active:scale-95"
               >
-                <Database size={18} />
-                Executar Crawlers
+                <Database size={16} /> Executar Scrapers
               </button>
-              <div className="flex items-center gap-4">
-                <div className="flex -space-x-3">
+              <div className="flex items-center gap-3">
+                <div className="flex -space-x-2">
                   {[1,2,3].map(i => (
-                    <div key={i} className="w-10 h-10 rounded-full border-2 border-[#0f172a] bg-slate-800 flex items-center justify-center overflow-hidden">
-                      <div className="w-6 h-6 bg-blue-500/20 rounded-full animate-pulse" />
+                    <div key={i} className="w-8 h-8 rounded-full border-2 border-[#0f172a] bg-slate-800 flex items-center justify-center">
+                      <div className="w-4 h-4 bg-blue-500/20 rounded-full animate-pulse" />
                     </div>
                   ))}
                 </div>
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">IA Integrada</span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Processamento Ativo</span>
               </div>
             </div>
           </div>
         </motion.div>
 
-        {/* Ações Rápidas Integradas */}
-        <div className="lg:col-span-5 space-y-8">
-          <div className="bg-white rounded-[2.5rem] p-10 border border-[var(--color-border-soft)] shadow-sm">
-            <h3 className="text-xl font-extrabold text-[var(--color-ink)] mb-8 flex items-center gap-3">
-              <Plus size={24} className="text-[var(--color-primary)]" />
-              Criação Rápida
+        <div className="lg:col-span-4 space-y-4">
+          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col gap-4">
+            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2">
+              <Plus size={16} className="text-blue-600" /> Atalhos Rápidos
             </h3>
             
-            <div className="grid grid-cols-1 gap-4">
-              {quickActions.map((action) => {
-                const AIcon = action.icon;
-                return (
-                  <button
-                    key={action.label}
-                    onClick={() => router.push(action.path)}
-                    className="flex items-center gap-6 p-5 bg-slate-50 rounded-2xl border border-transparent hover:border-[var(--color-primary)] hover:bg-white transition-all group"
-                  >
-                    <div className="w-14 h-14 bg-white rounded-xl shadow-sm flex items-center justify-center text-[var(--color-primary)] group-hover:bg-[var(--color-primary)] group-hover:text-white transition-all">
-                      <AIcon size={24} />
+            <div className="space-y-2">
+              {[
+                { label: 'Publicar Notícia', path: '/noticias', icon: Newspaper },
+                { label: 'Anexar LRF', path: '/lrf', icon: FileText },
+                { label: 'Novo Órgão', path: '/secretarias', icon: Building2 },
+              ].map((item) => (
+                <button
+                  key={item.label}
+                  onClick={() => router.push(item.path)}
+                  className="w-full flex items-center justify-between p-3 rounded-lg border border-slate-100 hover:border-blue-200 hover:bg-blue-50/50 transition-all group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-white rounded-md border border-slate-200 flex items-center justify-center text-slate-400 group-hover:text-blue-600 group-hover:border-blue-200 transition-all shadow-sm">
+                      <item.icon size={16} />
                     </div>
-                    <div className="text-left">
-                      <p className="text-sm font-black text-[var(--color-ink)] uppercase tracking-tight">{action.label}</p>
-                      <p className="text-xs text-[var(--color-muted)] font-medium">Novo registro no sistema</p>
-                    </div>
-                    <ArrowRight size={18} className="ml-auto text-slate-300 group-hover:text-[var(--color-primary)] transition-colors" />
-                  </button>
-                );
-              })}
+                    <span className="text-[11px] font-bold text-slate-700">{item.label}</span>
+                  </div>
+                  <ArrowRight size={14} className="text-slate-300 group-hover:text-blue-600" />
+                </button>
+              ))}
             </div>
           </div>
 
-          <div className="p-6 bg-emerald-50 rounded-3xl border border-emerald-100 flex items-center gap-4">
-            <div className="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-emerald-200">
-              <CheckCircle2 size={20} />
+          <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center gap-3">
+            <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center text-white shadow-md">
+              <CheckCircle2 size={16} />
             </div>
             <div>
-              <p className="text-xs font-black text-emerald-700 uppercase tracking-widest">Monitoramento Ativo</p>
-              <p className="text-[11px] text-emerald-600 font-bold opacity-80">Conexão estável com Supabase Cloud</p>
+              <p className="text-[10px] font-bold text-emerald-800 uppercase tracking-widest">Sistema Estável</p>
+              <p className="text-[9px] text-emerald-600 font-semibold">Conectado ao Cloud Gateway</p>
             </div>
           </div>
         </div>
       </div>
-
-      {/* ── Footer Branding ────────────────────────────────────────── */}
-      <footer className="pt-10 border-t border-[var(--color-border-soft)] flex justify-between items-center">
-        <p className="text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-[0.3em]">
-          Portalgov <span className="text-[var(--color-primary)]">Elite V6</span>
-        </p>
-        <p className="text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-widest flex items-center gap-4">
-          <span className="opacity-40">Privacy Policy</span>
-          <span className="opacity-40">Gov Standards</span>
-          <span>© 2025</span>
-        </p>
-      </footer>
     </div>
   );
 }

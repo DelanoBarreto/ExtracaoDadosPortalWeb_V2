@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { ScraperDrawer } from "@/components/layout/ScraperDrawer";
 import { Providers } from "@/providers/QueryProvider";
 
 export const metadata: Metadata = {
@@ -35,7 +34,6 @@ export default function RootLayout({
               </div>
             </main>
           </div>
-          <ScraperDrawer />
         </Providers>
       </body>
     </html>

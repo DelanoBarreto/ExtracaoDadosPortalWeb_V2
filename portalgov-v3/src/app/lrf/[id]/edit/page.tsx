@@ -3,20 +3,13 @@
 import { useRouter, useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { 
-  ArrowLeft, 
-  Save, 
-  Check, 
-  ChevronRight,
-  Clock,
-  Hash,
-  UploadCloud,
-  FileText,
-  Trash2,
-  Calendar
+  ArrowLeft, Save, Check, ChevronRight, Hash, 
+  UploadCloud, FileText, Trash2, Calendar
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { RichTextEditor } from '@/components/editor/RichTextEditor';
+import { X, Plus } from 'lucide-react';
 
 export default function EditLRFPage() {
   const router = useRouter();
@@ -34,6 +27,10 @@ export default function EditLRFPage() {
     status: 'rascunho',
     url_arquivo: ''
   });
+
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [newCategory, setNewCategory] = useState('');
+  const [availableCategories, setAvailableCategories] = useState<string[]>(['RGF', 'RREO', 'LOA', 'LDO', 'PPA']);
 
   const { data: item, isLoading } = useQuery({
     queryKey: ['lrf', id],
@@ -56,6 +53,10 @@ export default function EditLRFPage() {
         status: item.status || 'rascunho',
         url_arquivo: item.url_arquivo || ''
       });
+
+      if (item.categoria_lrf && !availableCategories.includes(item.categoria_lrf)) {
+        setAvailableCategories(prev => [...prev, item.categoria_lrf]);
+      }
     }
   }, [item]);
 
@@ -89,183 +90,235 @@ export default function EditLRFPage() {
   if (isLoading) return <div className="p-8">Carregando...</div>;
 
   return (
-    <div className="unified-editor-shell">
-      {/* ── Header Corporativo Unificado (Sticky Glass) ────────────────────────────── */}
-      <header className="unified-header flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="flex items-center gap-6">
+    <div className="flex flex-col h-full bg-bg-main">
+      {/* ── Main Header ────────────────────────────────────────────── */}
+      <header className="px-8 pt-6 pb-4 bg-white flex items-center justify-between border-b border-border-color mb-6 mx-[-32px] mt-[-32px]">
+        <div className="flex items-center gap-4">
           <button 
             onClick={() => router.push('/lrf')}
-            className="w-12 h-12 flex items-center justify-center rounded-xl bg-white border border-[var(--color-border-soft)] text-[var(--color-ink)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-all shadow-sm group"
+            className="flex items-center justify-center w-8 h-8 rounded hover:bg-slate-100 text-slate-500 transition-colors"
+            title="Voltar"
           >
-            <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+            <ArrowLeft size={20} />
           </button>
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="label-caps !text-[9px] !tracking-[0.2em] opacity-50">Controle de Contas</span>
-              <ChevronRight size={10} className="text-slate-300" />
-              <span className="label-caps !text-[9px] !text-emerald-600 !tracking-[0.2em] font-black uppercase">Gestão de LRF</span>
+            <h2 className="text-2xl font-bold text-city-hall-blue tracking-tight m-0 leading-none">
+              {id === 'new' ? 'Novo Documento LRF' : 'Editar Documento LRF'}
+            </h2>
+            <div className="text-[12px] text-slate-500 mt-1">
+              Preencha os campos abaixo para {id === 'new' ? 'criar' : 'atualizar'} o documento.
             </div>
-            <h1 className="text-2xl font-black tracking-tight text-[var(--color-ink)]">
-              {id === 'new' ? 'Novo Documento Fiscal' : 'Refinar LRF'}
-            </h1>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <button 
             onClick={() => router.push('/lrf')}
-            className="px-6 py-3 text-[10px] font-black text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-widest"
+            className="px-4 py-2 border border-border-color bg-white rounded-md text-[13px] font-semibold text-text-primary hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
           >
-            Descartar
+            <X size={15} />
+            Cancelar
           </button>
           <button 
-            onClick={() => saveMutation.mutate({ ...formData, status: 'rascunho' })}
-            className="px-6 py-3 bg-white border border-[var(--color-border-soft)] text-[var(--color-ink)] rounded-xl text-[10px] font-black uppercase tracking-[0.15em] hover:border-[var(--color-primary)] transition-all flex items-center gap-2"
+            onClick={() => saveMutation.mutate(formData)}
+            className="px-4 py-2 bg-city-hall-accent text-white rounded-md text-[13px] font-medium hover:bg-city-hall-blue transition-colors flex items-center gap-2 shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
           >
-            <Save size={14} />
-            Rascunho
-          </button>
-          <button 
-            onClick={() => saveMutation.mutate({ ...formData, status: 'publicado' })}
-            className="px-8 py-3.5 bg-[var(--color-primary)] text-white rounded-xl text-[10px] font-black uppercase tracking-[0.15em] shadow-[var(--shadow-primary)] hover:bg-[var(--color-primary-hover)] transition-all flex items-center gap-2 active:scale-95"
-          >
-            <Check size={16} />
-            Efetivar Publicação
+            <Save size={15} />
+            Salvar Alterações
           </button>
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 px-12 pb-20">
-        {/* Coluna Esquerda: Dados Formais */}
-        <div className="lg:col-span-8 space-y-12">
-          <section className="space-y-10">
-            <div className="space-y-2">
-              <label className="label-caps !text-[9px] text-slate-400 font-bold">Título Formal do Documento</label>
-              <input 
-                value={formData.titulo}
-                onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
-                className="w-full bg-transparent border-b-2 border-slate-100 focus:border-[var(--color-primary)] py-4 text-4xl font-black text-[var(--color-ink)] outline-none transition-all placeholder:text-slate-100 tracking-tight"
-                placeholder="Ex: RGF - 3º Quadrimestre..."
-              />
-            </div>
+      {/* ── Grid Layout ────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-12">
+        {/* Main Content */}
+        <div className="lg:col-span-2 bg-white border border-border-color rounded-xl p-6 shadow-[0_1px_3px_rgba(0,0,0,0.05)] flex flex-col gap-5">
+          <div className="space-y-1.5">
+            <label className="text-[13px] font-semibold text-slate-700">Título do Documento</label>
+            <input 
+              id="field-titulo"
+              value={formData.titulo}
+              onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('field-categoria_lrf')?.focus(); } }}
+              className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors"
+              placeholder="Ex: Relatório de Gestão Fiscal - 1º Quadrimestre 2024"
+            />
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-4">
-              <div className="space-y-2">
-                <label className="label-caps !text-[9px] text-slate-400 font-bold">Categoria Fiscal</label>
-                <input 
-                  value={formData.categoria_lrf}
-                  onChange={(e) => setFormData({ ...formData, categoria_lrf: e.target.value })}
-                  className="w-full bg-transparent border-b border-slate-100 py-2 text-md font-bold text-[var(--color-ink)] outline-none focus:border-[var(--color-primary)] transition-all"
-                  placeholder="Ex: RGF"
-                />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-semibold text-slate-700">Categoria Fiscal</label>
+                <div className="flex gap-2">
+                  <select
+                    id="field-categoria_lrf"
+                    value={formData.categoria_lrf}
+                    onChange={(e) => setFormData({ ...formData, categoria_lrf: e.target.value })}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('field-exercicio')?.focus(); } }}
+                    className="flex-1 bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors"
+                  >
+                    <option value="">Selecione...</option>
+                    {availableCategories.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => setIsCategoryModalOpen(true)}
+                    className="px-3 py-2 border border-border-color rounded-md bg-gray-50 hover:bg-gray-100 flex items-center justify-center text-text-secondary transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
+                    title="Nova Categoria"
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
               </div>
-              <div className="space-y-2">
-                <label className="label-caps !text-[9px] text-slate-400 font-bold">Exercício (Ano)</label>
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-semibold text-slate-700">Exercício (Ano)</label>
                 <input 
+                  id="field-exercicio"
                   value={formData.exercicio}
                   onChange={(e) => setFormData({ ...formData, exercicio: e.target.value })}
-                  className="w-full bg-transparent border-b border-slate-100 py-2 text-md font-bold text-[var(--color-ink)] outline-none focus:border-[var(--color-primary)] transition-all"
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('field-competencia')?.focus(); } }}
+                  className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors"
                   placeholder="2024"
                 />
               </div>
-              <div className="space-y-2">
-                <label className="label-caps !text-[9px] text-slate-400 font-bold">Competência</label>
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-semibold text-slate-700">Competência</label>
                 <input 
+                  id="field-competencia"
                   value={formData.competencia}
                   onChange={(e) => setFormData({ ...formData, competencia: e.target.value })}
-                  className="w-full bg-transparent border-b border-slate-100 py-2 text-md font-bold text-[var(--color-ink)] outline-none focus:border-[var(--color-primary)] transition-all"
-                  placeholder="3º Quadrimestre"
+                  className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors"
+                  placeholder="Ex: 1º Quadrimestre"
                 />
               </div>
             </div>
 
-            <div className="space-y-4 pt-4">
-              <label className="label-caps !text-[9px] text-slate-400 font-bold flex items-center gap-2">
-                <FileText size={12} className="text-[var(--color-primary)]" /> Justificativa Legal
+            <div className="space-y-1.5">
+              <label className="text-[13px] font-semibold text-slate-700 flex items-center gap-2">
+                <FileText size={14} className="text-city-hall-blue" /> Descrição / Justificativa
               </label>
-              <div className="bg-white rounded-3xl border border-[var(--color-border-soft)] shadow-sm overflow-hidden min-h-[350px]">
+              <div className="bg-white rounded-md border border-border-color overflow-hidden min-h-[400px] focus-within:ring-2 focus-within:ring-city-hall-accent/50 focus-within:border-city-hall-accent transition-colors">
                 <RichTextEditor 
                   content={formData.descricao}
                   onChange={(html) => setFormData({ ...formData, descricao: html })}
                 />
               </div>
             </div>
-          </section>
         </div>
 
-        {/* Coluna Direita: Metadados Fiscal */}
-        <div className="lg:col-span-4 space-y-10">
-          <div className="space-y-10 sticky top-32">
-            <div className="space-y-4">
-              <label className="label-caps !text-[9px] text-slate-400 font-bold px-1">Status de Fiscalização</label>
-              <div className="p-1 bg-slate-50 rounded-xl flex gap-1 border border-slate-100">
-                {['rascunho', 'publicado', 'arquivado'].map((st) => (
-                  <button
-                    key={st}
-                    onClick={() => setFormData({ ...formData, status: st })}
-                    className={`flex-1 py-2.5 text-[9px] uppercase font-black tracking-widest rounded-lg transition-all ${
-                      formData.status === st 
-                        ? 'bg-white text-emerald-600 shadow-sm' 
-                        : 'text-slate-400 hover:text-slate-900'
-                    }`}
-                  >
-                    {st}
-                  </button>
-                ))}
+        {/* Sidebar Metadata */}
+        <div className="flex flex-col gap-6">
+          <div className="bg-white border border-border-color rounded-xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.05)] space-y-5">
+            <div className="space-y-1.5">
+              <label className="text-[13px] font-semibold text-slate-700">Visibilidade</label>
+              <select 
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors"
+              >
+                <option value="rascunho">Rascunho</option>
+                <option value="publicado">Publicado</option>
+                <option value="arquivado">Arquivado</option>
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[13px] font-semibold text-slate-700">Data do Ato</label>
+              <div className="relative">
+                <Calendar size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input 
+                  type="date" 
+                  value={formData.data} 
+                  onChange={(e) => setFormData({ ...formData, data: e.target.value })} 
+                  className="w-full bg-white border border-border-color rounded-md pl-9 pr-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors"
+                />
               </div>
             </div>
 
-            <div className="space-y-4">
-              <label className="label-caps !text-[9px] text-slate-400 font-bold px-1">Documento Digital</label>
-              <div className="aspect-video rounded-3xl border-2 border-dashed border-slate-100 flex flex-col items-center justify-center gap-4 bg-emerald-50/10 hover:bg-white hover:border-emerald-500 transition-all cursor-pointer group shadow-sm overflow-hidden">
-                <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-emerald-400 shadow-sm group-hover:scale-110 transition-all">
-                  <UploadCloud size={24} />
-                </div>
-                <div className="text-center">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-900">
-                    {formData.url_arquivo ? 'Substituir PDF' : 'Anexar PDF Oficial'}
-                  </p>
-                </div>
+            <div className="space-y-1.5">
+              <label className="text-[13px] font-semibold text-slate-700">Documento PDF</label>
+              <div className="aspect-video w-full rounded-md border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-2 bg-slate-50 hover:border-city-hall-accent hover:bg-blue-50/50 transition-all cursor-pointer group overflow-hidden">
+                <UploadCloud size={24} className="text-slate-400 group-hover:text-city-hall-accent transition-colors" />
+                <span className="text-[12px] font-medium text-slate-500 group-hover:text-city-hall-accent transition-colors">
+                  {formData.url_arquivo ? 'Trocar PDF' : 'Anexar PDF'}
+                </span>
+                {formData.url_arquivo && <p className="text-[10px] text-city-hall-accent mt-1 truncate max-w-full px-2">Arquivo carregado</p>}
               </div>
             </div>
 
-            <div className="p-8 bg-[#0f172a] rounded-[2rem] shadow-xl space-y-5 border border-slate-800 relative overflow-hidden">
-               <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 blur-[60px]" />
-               <div className="relative z-10 space-y-5">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                  <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                    <Hash size={12} /> Protocolo
-                  </span>
-                  <span className="font-mono text-[9px] text-emerald-400 font-bold">
-                    {id === 'new' ? '#NOVO' : id?.toString().slice(0, 8).toUpperCase()}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                    <Calendar size={12} /> Data do Ato
-                  </span>
-                  <input 
-                    type="date" 
-                    value={formData.data} 
-                    onChange={(e) => setFormData({ ...formData, data: e.target.value })} 
-                    className="bg-transparent border-none text-[9px] text-slate-300 font-bold outline-none text-right cursor-pointer hover:text-white" 
-                  />
-                </div>
-               </div>
-            </div>
-
-            <div className="pt-4">
+            <div className="pt-4 border-t border-border-color">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-[12px] font-semibold text-slate-500 flex items-center gap-1.5">
+                  <Hash size={14} /> ID Interno
+                </span>
+                <span className="font-mono text-[12px] text-text-secondary">
+                  {id === 'new' ? 'NOVO' : id?.toString().slice(0, 8).toUpperCase()}
+                </span>
+              </div>
               <button 
                 onClick={handleDelete}
-                className="w-full py-4 rounded-2xl bg-red-50 text-red-500 text-[9px] font-black uppercase tracking-[0.2em] hover:bg-red-500 hover:text-white transition-all flex items-center justify-center gap-2 active:scale-95 group"
+                className="w-full py-2.5 rounded-md border border-red-200 text-red-600 text-[13px] font-semibold hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
               >
-                <Trash2 size={16} />
-                Revogar Documento
+                <Trash2 size={15} /> Revogar Documento
               </button>
             </div>
           </div>
         </div>
       </div>
+      {/* ── Modal de Nova Categoria ────────────────────────────────────────────── */}
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-5 py-4 border-b border-border-color flex justify-between items-center bg-gray-50/50">
+              <h3 className="font-semibold text-city-hall-blue m-0">Nova Categoria LRF</h3>
+              <button onClick={() => setIsCategoryModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium text-text-primary">Nome da Categoria</label>
+                <input 
+                  autoFocus
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newCategory.trim()) {
+                      setAvailableCategories(prev => [...prev, newCategory.trim()]);
+                      setFormData(prev => ({ ...prev, categoria_lrf: newCategory.trim() }));
+                      setNewCategory('');
+                      setIsCategoryModalOpen(false);
+                    }
+                  }}
+                  className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-1 focus:ring-city-hall-accent transition-colors"
+                  placeholder="Ex: Balanço Anual"
+                />
+              </div>
+            </div>
+            <div className="px-5 py-3 border-t border-border-color bg-gray-50 flex justify-end gap-2">
+              <button 
+                onClick={() => setIsCategoryModalOpen(false)}
+                className="px-4 py-2 bg-white border border-border-color rounded-md text-[13px] font-medium text-text-secondary hover:bg-gray-100 transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={() => {
+                  if (newCategory.trim()) {
+                    setAvailableCategories(prev => [...prev, newCategory.trim()]);
+                    setFormData(prev => ({ ...prev, categoria_lrf: newCategory.trim() }));
+                    setNewCategory('');
+                    setIsCategoryModalOpen(false);
+                  }
+                }}
+                className="px-4 py-2 bg-city-hall-accent text-white rounded-md text-[13px] font-medium hover:bg-city-hall-blue transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
+              >
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

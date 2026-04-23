@@ -15,6 +15,16 @@
   --color-primary-glow:     rgba(29, 78, 216, 0.12);
   --color-primary-hover:    #1239a6;
 
+  /* ── Identidade: City Hall AI Studio ── */
+  --color-city-hall-blue:   #002b5b;
+  --color-city-hall-accent: #004c99;
+  --color-bg-main:          #f1f5f9;
+  --color-text-primary:     #0f172a;
+  --color-text-secondary:   #475569;
+  --color-border-color:     #e2e8f0;
+  --color-success:          #10b981;
+  --color-warning:          #f59e0b;
+
   /* ── Sidebar ── */
   --color-sidebar-bg:       #0f172a;
   --color-sidebar-border:   #1e293b;
@@ -139,8 +149,8 @@ body {
 
 .page-container {
   max-width: 1440px;
-  margin: 0 auto;
-  padding: var(--space-container) var(--space-container);
+  margin: 0;
+  padding: 32px;
 }
 
 /* ════════════════════════════════════
@@ -423,6 +433,38 @@ body {
 }
 .input-base:hover:not(:focus) {
   border-color: var(--color-border);
+}
+
+/* ── Content Editor Container (Clear Typing Area) ── */
+.content-editor-wrapper {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-xl);
+  transition: all 0.2s ease;
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+}
+
+.content-editor-wrapper:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 4px var(--color-primary-glow);
+}
+
+.content-editor-toolbar {
+  background: var(--color-surface-low);
+  border-bottom: 1px solid var(--color-border-soft);
+  padding: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+}
+
+.content-editor-area {
+  padding: 1.5rem;
+  flex: 1;
+  outline: none;
 }
 
 /* ════════════════════════════════════

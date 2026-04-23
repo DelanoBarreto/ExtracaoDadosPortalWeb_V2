@@ -23,3 +23,34 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+// POST — Criar nova notícia manualmente pelo admin
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+
+    // municipio_id é obrigatório para não criar registro órfão
+    if (!body.municipio_id) {
+      return NextResponse.json(
+        { error: 'municipio_id é obrigatório para criar uma notícia.' },
+        { status: 400 }
+      );
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('tab_noticias')
+      .insert([{
+        ...body,
+        data_publicacao: body.data_publicacao || new Date().toISOString(),
+        status: body.status || 'rascunho',
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return NextResponse.json(data, { status: 201 });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+

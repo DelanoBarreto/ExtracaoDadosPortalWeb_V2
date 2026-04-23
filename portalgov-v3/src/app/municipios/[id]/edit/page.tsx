@@ -3,19 +3,9 @@
 import { useRouter, useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { 
-  ArrowLeft, 
-  Save, 
-  Check, 
-  ChevronRight,
-  Hash,
-  UploadCloud,
-  Settings,
-  Trash2,
-  Globe,
-  Palette,
-  Layout,
-  Share2,
-  Activity
+  ArrowLeft, Save, Check, ChevronRight, Hash, 
+  UploadCloud, Settings, Trash2, Globe, Palette, 
+  Share2, Activity
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
@@ -90,81 +80,80 @@ export default function EditMunicipioPage() {
 
   if (isLoading) return <div className="p-8">Carregando Identidade...</div>;
 
-    return (
-    <div className="flex flex-col">
-      {/* ── Header Corporativo Elite ────────────────────────────── */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-10 mb-10 border-b border-[var(--color-border-soft)]">
-        <div className="flex items-center gap-6">
+  return (
+    <div className="flex flex-col min-h-screen bg-bg-main p-8">
+      {/* ── Action Header ────────────────────────────────────────────── */}
+      <header className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-4">
           <button 
             onClick={() => router.push('/municipios')}
-            className="w-14 h-14 flex items-center justify-center rounded-2xl bg-white border border-[var(--color-border-soft)] text-[var(--color-ink)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-all shadow-sm group"
+            className="w-10 h-10 flex items-center justify-center rounded-md border border-border-color bg-white text-text-primary hover:bg-gray-50 transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
           >
-            <ArrowLeft size={22} className="group-hover:-translate-x-1 transition-transform" />
+            <ArrowLeft size={18} />
           </button>
           <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="label-caps !text-[10px] !tracking-[0.2em]">Configurações Estruturais</span>
-              <ChevronRight size={12} className="text-slate-300" />
-              <span className="label-caps !text-[10px] !text-[var(--color-primary)] !tracking-[0.2em]">Identidade Federativa</span>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[11px] font-bold text-city-hall-accent uppercase tracking-widest">Infraestrutura</span>
+              <ChevronRight size={12} className="text-gray-300" />
+              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Configuração</span>
             </div>
-            <h1 className="text-4xl font-black tracking-tighter text-[var(--color-ink)] flex items-center gap-4">
-              {formData.nome || 'Novo Município'}
-              <span className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)] animate-pulse" />
+            <h1 className="text-2xl font-bold text-city-hall-blue tracking-tight">
+              {id === 'new' ? 'Novo Município' : 'Editar Município'}
             </h1>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <button 
             onClick={() => router.push('/municipios')}
-            className="px-8 py-4 text-sm font-black text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-widest"
+            className="px-4 py-2 text-[13px] font-semibold text-text-primary hover:bg-gray-100 rounded-md transition-colors"
           >
-            Descartar
+            Cancelar
           </button>
           <button 
             onClick={() => saveMutation.mutate(formData)}
-            className="px-10 py-4.5 bg-[var(--color-primary)] text-white rounded-2xl text-xs font-black uppercase tracking-[0.2em] shadow-[var(--shadow-primary)] hover:bg-[var(--color-primary-hover)] transition-all flex items-center gap-3 active:scale-95"
+            className="px-6 py-2 bg-city-hall-accent text-white rounded-md text-[13px] font-medium hover:bg-city-hall-blue transition-colors flex items-center gap-2 shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
           >
-            <Save size={20} />
-            Salvar Alterações
+            <Save size={16} /> Salvar Alterações
           </button>
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
-        {/* Coluna Principal: Fluxo Unificado */}
-        <div className="lg:col-span-8 space-y-16">
-          
-          {/* Seção 01: Definições de Domínio */}
-          <section className="space-y-10">
-            <div className="flex items-center gap-4 border-b border-slate-100 pb-6">
-              <div className="w-12 h-12 rounded-2xl bg-[var(--color-primary-glow)] flex items-center justify-center text-[var(--color-primary)]">
-                <Globe size={24} />
+      {/* ── Grid Layout ────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-12 max-w-[1440px]">
+        {/* Main Content */}
+        <div className="space-y-12">
+          {/* Seção 01: Localidade */}
+          <section className="bg-white p-6 rounded-lg border border-border-color shadow-[0_1px_3px_rgba(0,0,0,0.05)] space-y-6">
+            <div className="flex items-center gap-3 border-b border-border-color pb-4">
+              <div className="w-8 h-8 rounded-md bg-city-hall-blue/10 flex items-center justify-center text-city-hall-blue">
+                <Globe size={18} />
               </div>
-              <div>
-                <h2 className="text-2xl font-black text-[var(--color-ink)] tracking-tight">Dados de Localidade</h2>
-                <p className="text-sm font-bold text-slate-400 mt-1">Defina os parâmetros de acesso e nomenclatura oficial</p>
-              </div>
+              <h2 className="text-base font-bold text-city-hall-blue tracking-tight">Parâmetros de Rede</h2>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-              <div className="space-y-3">
-                <label className="label-caps !text-[10px] !text-slate-400">Nome Oficial da Jurisdição</label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-[13px] font-semibold text-text-primary">Nome da Cidade / Jurisdição</label>
                 <input 
+                  id="field-nome"
                   value={formData.nome} 
                   onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                  className="w-full text-2xl font-black border-b-2 border-slate-100 bg-transparent py-4 focus:border-[var(--color-primary)] outline-none transition-all placeholder:text-slate-200" 
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('field-slug')?.focus(); } }}
+                  className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-1 focus:ring-city-hall-accent transition-all" 
                   placeholder="Ex: Aracati" 
                 />
               </div>
-              <div className="space-y-3">
-                <label className="label-caps !text-[10px] !text-slate-400">Identificador de URL (Slug)</label>
-                <div className="relative group">
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-300 font-mono text-xl font-bold">/</span>
+              <div className="space-y-2">
+                <label className="text-[13px] font-semibold text-text-primary">Identificador (Slug)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-mono text-[14px]">/</span>
                   <input 
+                    id="field-slug"
                     value={formData.slug} 
                     onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                    className="w-full text-2xl font-mono border-b-2 border-slate-100 bg-transparent py-4 pl-6 focus:border-[var(--color-primary)] outline-none transition-all text-[var(--color-primary)] placeholder:text-slate-200" 
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('field-facebook')?.focus(); } }}
+                    className="w-full bg-gray-50 border border-border-color rounded-md pl-7 pr-3 py-2 text-[14px] font-mono text-city-hall-blue outline-none focus:border-city-hall-accent focus:ring-1 focus:ring-city-hall-accent transition-all" 
                     placeholder="aracati" 
                   />
                 </div>
@@ -172,172 +161,155 @@ export default function EditMunicipioPage() {
             </div>
           </section>
 
-          {/* Seção 02: Branding & Design */}
-          <section className="space-y-10">
-            <div className="flex items-center gap-4 border-b border-slate-100 pb-6">
-              <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600">
-                <Palette size={24} />
+          {/* Seção 02: Branding */}
+          <section className="bg-white p-6 rounded-lg border border-border-color shadow-[0_1px_3px_rgba(0,0,0,0.05)] space-y-6">
+            <div className="flex items-center gap-3 border-b border-border-color pb-4">
+              <div className="w-8 h-8 rounded-md bg-amber-50 flex items-center justify-center text-amber-600">
+                <Palette size={18} />
               </div>
-              <div>
-                <h2 className="text-2xl font-black text-[var(--color-ink)] tracking-tight">Identidade Visual</h2>
-                <p className="text-sm font-bold text-slate-400 mt-1">Gerencie a marca e a presença estética do município</p>
-              </div>
+              <h2 className="text-base font-bold text-city-hall-blue tracking-tight">Identidade Visual</h2>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-              <div className="space-y-4">
-                <label className="label-caps !text-[10px] !text-slate-400">Logo do Portal</label>
-                <div className="aspect-square bg-slate-50/50 rounded-[2rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-4 hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-glow)] cursor-pointer transition-all group">
-                  <UploadCloud size={40} className="text-slate-300 group-hover:text-[var(--color-primary)] transition-colors" />
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center px-4 leading-relaxed">Arrastar Logo <br/> (PNG/SVG)</span>
-                </div>
-              </div>
-              <div className="space-y-4">
-                <label className="label-caps !text-[10px] !text-slate-400">Brasão Municipal</label>
-                <div className="aspect-square bg-slate-50/50 rounded-[2rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-4 hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-glow)] cursor-pointer transition-all group">
-                  <UploadCloud size={40} className="text-slate-300 group-hover:text-[var(--color-primary)] transition-colors" />
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center px-4 leading-relaxed">Enviar Brasão <br/> Vetorizado</span>
-                </div>
-              </div>
-              <div className="space-y-4">
-                <label className="label-caps !text-[10px] !text-slate-400">Paleta Primária</label>
-                <div className="h-[calc(100%-2.5rem)] flex flex-col justify-center gap-6 p-2">
-                  <div className="flex items-center gap-6">
-                    <div className="relative">
-                      <input 
-                        type="color" 
-                        value={formData.cor_primaria} 
-                        onChange={(e) => setFormData({ ...formData, cor_primaria: e.target.value })}
-                        className="w-16 h-16 border-4 border-white rounded-3xl shadow-xl cursor-pointer bg-transparent relative z-10" 
-                      />
-                      <div 
-                        className="absolute inset-0 rounded-3xl blur-xl opacity-40" 
-                        style={{ backgroundColor: formData.cor_primaria }}
-                      />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="space-y-2">
+                <label className="text-[13px] font-semibold text-text-primary">Logo do Portal</label>
+                <div className="aspect-square bg-gray-50 rounded-lg border border-dashed border-border-color flex flex-col items-center justify-center gap-2 hover:border-city-hall-accent transition-all cursor-pointer group overflow-hidden relative">
+                  {formData.logo_url ? (
+                    <img src={formData.logo_url} alt="Logo" className="w-full h-full object-contain p-2" />
+                  ) : (
+                    <>
+                      <UploadCloud size={24} className="text-gray-400 group-hover:text-city-hall-accent transition-colors" />
+                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest text-center px-4 leading-tight">PNG / SVG</span>
+                    </>
+                  )}
+                  {formData.logo_url && (
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span className="text-white text-xs font-medium">Trocar Logo</span>
                     </div>
-                    <input 
-                      value={formData.cor_primaria} 
-                      onChange={(e) => setFormData({ ...formData, cor_primaria: e.target.value })}
-                      className="text-xl font-mono font-black text-[var(--color-ink)] outline-none w-28 border-b-2 border-slate-100 focus:border-[var(--color-primary)] bg-transparent py-2" 
-                    />
-                  </div>
-                  <p className="text-[10px] text-slate-400 font-bold leading-relaxed">
-                    Define a cor mestre da interface e elementos interativos.
-                  </p>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[13px] font-semibold text-text-primary">Brasão Municipal</label>
+                <div className="aspect-square bg-gray-50 rounded-lg border border-dashed border-border-color flex flex-col items-center justify-center gap-2 hover:border-city-hall-accent transition-all cursor-pointer group overflow-hidden relative">
+                  {formData.brasao_url ? (
+                    <img src={formData.brasao_url} alt="Brasão" className="w-full h-full object-contain p-2" />
+                  ) : (
+                    <>
+                      <UploadCloud size={24} className="text-gray-400 group-hover:text-city-hall-accent transition-colors" />
+                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest text-center px-4 leading-tight">SVG Oficial</span>
+                    </>
+                  )}
+                  {formData.brasao_url && (
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span className="text-white text-xs font-medium">Trocar Brasão</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[13px] font-semibold text-text-primary">Cor Primária</label>
+                <div className="bg-gray-50 rounded-lg border border-border-color p-4 flex flex-col items-center justify-center gap-4 h-[calc(100%-1.75rem)]">
+                  <input 
+                    type="color" 
+                    value={formData.cor_primaria} 
+                    onChange={(e) => setFormData({ ...formData, cor_primaria: e.target.value })}
+                    className="w-12 h-12 border border-border-color rounded-md shadow-sm cursor-pointer bg-transparent" 
+                  />
+                  <input 
+                    value={formData.cor_primaria} 
+                    onChange={(e) => setFormData({ ...formData, cor_primaria: e.target.value })}
+                    className="w-24 text-center text-[13px] font-mono text-text-primary bg-white border border-border-color rounded-md py-1" 
+                  />
                 </div>
               </div>
             </div>
           </section>
 
-          {/* Seção 03: Presença Digital */}
-          <section className="space-y-10">
-            <div className="flex items-center gap-4 border-b border-slate-100 pb-6">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600">
-                <Share2 size={24} />
+          {/* Seção 03: Social */}
+          <section className="bg-white p-6 rounded-lg border border-border-color shadow-[0_1px_3px_rgba(0,0,0,0.05)] space-y-6">
+            <div className="flex items-center gap-3 border-b border-border-color pb-4">
+              <div className="w-8 h-8 rounded-md bg-indigo-50 flex items-center justify-center text-indigo-600">
+                <Share2 size={18} />
               </div>
-              <div>
-                <h2 className="text-2xl font-black text-[var(--color-ink)] tracking-tight">Canais Digitais</h2>
-                <p className="text-sm font-bold text-slate-400 mt-1">Conecte o portal às redes institucionais</p>
-              </div>
+              <h2 className="text-base font-bold text-city-hall-blue tracking-tight">Presença Digital</h2>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-              <div className="space-y-3">
-                <label className="label-caps !text-[10px] !text-slate-400">Página Facebook</label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-[13px] font-semibold text-text-primary">Facebook</label>
                 <input 
+                  id="field-facebook"
                   value={formData.facebook_url} 
                   onChange={(e) => setFormData({ ...formData, facebook_url: e.target.value })}
-                  className="w-full border-b-2 border-slate-100 bg-transparent py-4 focus:border-[var(--color-primary)] outline-none transition-all font-bold text-sm" 
-                  placeholder="Ex: facebook.com/prefeitura"
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('field-instagram')?.focus(); } }}
+                  className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-1 focus:ring-city-hall-accent transition-all" 
+                  placeholder="facebook.com/prefeitura"
                 />
               </div>
-              <div className="space-y-3">
-                <label className="label-caps !text-[10px] !text-slate-400">Perfil Instagram</label>
+              <div className="space-y-2">
+                <label className="text-[13px] font-semibold text-text-primary">Instagram</label>
                 <input 
+                  id="field-instagram"
                   value={formData.instagram_url} 
                   onChange={(e) => setFormData({ ...formData, instagram_url: e.target.value })}
-                  className="w-full border-b-2 border-slate-100 bg-transparent py-4 focus:border-[var(--color-primary)] outline-none transition-all font-bold text-sm" 
-                  placeholder="Ex: @prefeitura_oficial"
+                  className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-1 focus:ring-city-hall-accent transition-all" 
+                  placeholder="@prefeitura_oficial"
                 />
               </div>
             </div>
           </section>
         </div>
 
-        {/* Barra Lateral Unificada */}
-        <aside className="lg:col-span-4 space-y-12">
-          <div className="bg-[#0f172a] rounded-[3rem] p-10 shadow-2xl relative overflow-hidden group border border-slate-800">
-            <div className="absolute top-0 right-0 w-full h-full bg-[radial-gradient(circle_at_80%_20%,#1d4ed833,transparent_40%)]" />
+        {/* Sidebar Metadata */}
+        <div className="space-y-6">
+          <div className="bg-city-hall-blue text-white rounded-lg p-5 shadow-sm">
+            <h3 className="text-[13px] font-bold uppercase tracking-wider mb-4 flex items-center gap-2 text-city-hall-accent">
+              <Settings size={16} /> Status de Publicação
+            </h3>
             
-            <div className="relative z-10 space-y-8">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-[var(--color-primary)] rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
-                  <Activity size={24} />
-                </div>
-                <div>
-                  <h3 className="text-white font-black uppercase tracking-[0.2em] text-[10px]">Governança</h3>
-                  <p className="text-slate-400 text-[10px] font-bold">Estado do Sistema</p>
-                </div>
-              </div>
-              
-              <div className="space-y-6">
-                <div className="space-y-3">
-                  <label className="label-caps !text-[9px] !text-slate-500">Acessibilidade Pública</label>
-                  <div className="relative">
-                    <select 
-                      value={formData.status} 
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                      className="w-full bg-slate-800/40 border border-slate-700/50 text-white rounded-2xl p-5 focus:border-blue-500 outline-none font-black text-xs appearance-none transition-all"
-                    >
-                      <option value="ativo" className="bg-[#0f172a]">Online / Operação Total</option>
-                      <option value="manutencao" className="bg-[#0f172a]">Modo Manutenção</option>
-                      <option value="suspenso" className="bg-[#0f172a]">Jurisdição Suspensa</option>
-                    </select>
-                    <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none">
-                      <ChevronRight size={16} className="text-slate-600 rotate-90" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-6 bg-slate-900/50 rounded-3xl space-y-4 border border-slate-800/50">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                      <Hash size={14} /> Cloud ID
-                    </span>
-                    <span className="text-blue-400 font-mono text-[10px] font-black">{id}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                      <Settings size={14} /> Engine
-                    </span>
-                    <span className="text-slate-300 text-[10px] font-black uppercase tracking-widest">v3.0.4-PRO</span>
-                  </div>
-                </div>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[12px] font-medium text-blue-100">Visibilidade</label>
+                <select 
+                  value={formData.status} 
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  className="w-full bg-white/10 border border-white/20 text-white rounded-md px-3 py-2 text-[13px] outline-none focus:border-city-hall-accent appearance-none cursor-pointer"
+                >
+                  <option value="ativo" className="text-text-primary">Online / Operação Total</option>
+                  <option value="manutencao" className="text-text-primary">Manutenção</option>
+                  <option value="suspenso" className="text-text-primary">Suspenso</option>
+                </select>
               </div>
 
-              <p className="text-[10px] text-slate-500 font-bold leading-relaxed italic px-2">
-                Alterações de governança impactam imediatamente todos os endpoints de transparência vinculados a esta jurisdição.
-              </p>
+              <div className="pt-4 border-t border-white/10 space-y-2">
+                <div className="flex justify-between items-center text-[12px]">
+                  <span className="text-blue-200">ID</span>
+                  <span className="font-mono text-city-hall-accent font-medium">{id === 'new' ? 'AUTO' : id?.toString().slice(0, 8)}</span>
+                </div>
+                <div className="flex justify-between items-center text-[12px]">
+                  <span className="text-blue-200">Engine</span>
+                  <span className="font-mono">v4.0.0</span>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="p-10 border-2 border-red-50/30 rounded-[3rem] space-y-6">
-            <h3 className="text-xs font-black text-red-900 uppercase tracking-[0.2em] flex items-center gap-3">
-              <Trash2 size={18} className="text-red-500" />
-              Zona Crítica
+          <div className="p-5 border border-red-200 rounded-lg space-y-4 bg-red-50">
+            <h3 className="text-[12px] font-bold text-red-700 uppercase tracking-widest flex items-center gap-2">
+              <Trash2 size={14} /> Zona de Perigo
             </h3>
-            <p className="text-[11px] text-slate-400 font-bold leading-relaxed">
-              A exclusão removerá permanentemente todos os registros, arquivos e metadados desta jurisdição. Esta ação é irreversível.
+            <p className="text-[12px] text-red-600/80 leading-relaxed">
+              A exclusão removerá todos os registros permanentemente.
             </p>
             <button 
               onClick={handleDelete}
-              className="w-full py-5 bg-red-50 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-all flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] group active:scale-95 shadow-sm"
+              className="w-full py-2 bg-white border border-red-200 text-red-600 rounded-md hover:bg-red-50 transition-colors flex items-center justify-center gap-2 text-[13px] font-semibold"
             >
-              <Trash2 size={18} className="group-hover:scale-110 transition-transform" />
-              Remover Município
+              Excluir Município
             </button>
           </div>
-        </aside>
+        </div>
       </div>
     </div>
   );

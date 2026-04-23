@@ -25,6 +25,7 @@ const MENU_ITEMS = [
   { id: 'lrf',       label: 'Transparência LRF',  icon: FileText,        path: '/lrf',         group: 'conteudo' },
   { id: 'secretarias', label: 'Secretarias',      icon: Building2,       path: '/secretarias', group: 'conteudo' },
   { id: 'config',    label: 'Configurações',       icon: Settings,        path: '/config',      group: 'sistema' },
+  { id: 'scraper',   label: 'Console de Raspagem', icon: Activity,        path: '/scraper',     group: 'sistema' },
 ];
 
 export function Sidebar() {
