@@ -25,15 +25,7 @@ export default function RootLayout({
       </head>
       <body className="antialiased">
         <Providers>
-          {/* Shell fluido — sem centralização com box-shadow */}
-          <div className="app-shell">
-            <Sidebar />
-            <main className="main-content">
-              <div className="page-container">
-                {children}
-              </div>
-            </main>
-          </div>
+          {children}
         </Providers>
       </body>
     </html>

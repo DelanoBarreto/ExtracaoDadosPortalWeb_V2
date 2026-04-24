@@ -1,179 +1,147 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
-import { usePortalStore } from '@/store/usePortalStore';
-import { supabase } from '@/lib/supabase';
-import { formatDistanceToNow } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { Lock, User, ShieldCheck, ArrowRight } from 'lucide-react';
+import { motion } from 'framer-motion';
 
-export default function DashboardPage() {
+export default function LoginPage() {
   const router = useRouter();
-  const { municipioAtivo } = usePortalStore();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
-  const { data: stats, isLoading } = useQuery({
-    queryKey: ['dashboard-stats-v2', municipioAtivo?.id],
-    queryFn: async () => {
-      if (!municipioAtivo?.id) return { noticiasRascunho: 0, lrf: 0, secretarias: 0, ultimas: [] };
-      
-      const [nR, l, s, ultimasReq] = await Promise.all([
-        supabase.from('tab_noticias').select('id', { count: 'exact', head: true }).eq('municipio_id', municipioAtivo.id).eq('status', 'rascunho'),
-        supabase.from('tab_lrf').select('id', { count: 'exact', head: true }).eq('municipio_id', municipioAtivo.id),
-        supabase.from('tab_secretarias').select('id', { count: 'exact', head: true }).eq('municipio_id', municipioAtivo.id),
-        supabase.from('tab_noticias').select('id, titulo, data_publicacao, status').eq('municipio_id', municipioAtivo.id).order('data_publicacao', { ascending: false }).limit(5)
-      ]);
-      
-      return { 
-        noticiasRascunho: nR.count ?? 0, 
-        lrf: l.count ?? 0, 
-        secretarias: s.count ?? 0,
-        ultimas: ultimasReq.data || []
-      };
-    },
-    enabled: !!municipioAtivo?.id,
-  });
-
-  // Helper para formatar data relativa
-  const formatTime = (dateStr: string | null) => {
-    if (!dateStr) return '—';
-    try {
-      const date = new Date(dateStr);
-      // Se for mais velho que 3 dias, mostra a data, senão mostra "Há X horas/dias"
-      const diffDias = (new Date().getTime() - date.getTime()) / (1000 * 3600 * 24);
-      if (diffDias > 3) {
-        return date.toLocaleDateString('pt-BR');
-      }
-      return formatDistanceToNow(date, { addSuffix: true, locale: ptBR });
-    } catch {
-      return dateStr;
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Usuário padrão solicitado: admin / admin123
+    if (username === 'admin' && password === 'admin123') {
+      router.push('/dashboard');
+    } else {
+      setError('Credenciais inválidas. Use admin / admin123');
     }
   };
 
   return (
-    <div className="flex flex-col min-h-full bg-[#f8fafc] p-8 font-sans">
+    <div className="flex min-h-screen bg-white font-sans overflow-hidden">
       
-      {/* ── Header ────────────────────────────────────────────────── */}
-      <div className="mb-8">
-        <h1 className="text-[28px] font-bold text-[#1e293b] tracking-tight">Visão Geral</h1>
-        <p className="text-[14px] text-slate-500 font-medium mt-1">Métricas e Moderação</p>
-      </div>
-
-      {/* ── KPI Grid ──────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+      {/* ── LADO ESQUERDO: LOGIN ────────────────────────────────────── */}
+      <div className="w-full lg:w-1/2 flex flex-col p-8 lg:p-16 relative">
         
-        {/* Card 1: Notícias (Rascunho) */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between">
-          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-3">Notícias (Rascunho)</span>
-          <span className="text-[32px] font-bold text-[#0f172a] leading-none">
-            {isLoading ? '...' : stats?.noticiasRascunho}
+        {/* Badge superior */}
+        <div className="mb-16">
+          <span className="inline-flex items-center px-3 py-1 bg-[#004282] text-white text-[10px] font-bold rounded-full uppercase tracking-wider">
+            PortalGov - Extração de Dados v4
           </span>
         </div>
 
-        {/* Card 2: LRF & Atos Oficiais */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between">
-          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-3">LRF & Atos Oficiais</span>
-          <span className="text-[32px] font-bold text-[#0f172a] leading-none">
-            {isLoading ? '...' : stats?.lrf}
-          </span>
+        {/* Conteúdo Central */}
+        <div className="max-w-md my-auto">
+          <motion.h1 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-[56px] font-bold text-[#003366] leading-[1.1] tracking-tight mb-6"
+          >
+            Extração de <br />
+            <span className="text-[#0055aa]">Dados Públicos</span>
+          </motion.h1>
+          
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="text-slate-500 text-lg leading-relaxed mb-10"
+          >
+            Nuvem governamental centralizada para extração rotineira e controle de acessos de dados de diário oficial e licitações.
+          </motion.p>
+
+          {/* Formulário de Login */}
+          <motion.form 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            onSubmit={handleLogin}
+            className="space-y-4"
+          >
+            <div className="relative">
+              <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input 
+                type="text"
+                placeholder="Usuário"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-700"
+              />
+            </div>
+
+            <div className="relative">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input 
+                type="password"
+                placeholder="Senha"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-700"
+              />
+            </div>
+
+            {error && (
+              <p className="text-red-500 text-sm font-medium px-1">{error}</p>
+            )}
+
+            <button 
+              type="submit"
+              className="w-full flex items-center justify-center gap-3 py-4 bg-[#004a99] text-white rounded-xl font-bold hover:bg-[#003d7a] transition-all shadow-lg shadow-blue-900/20 group active:scale-[0.98]"
+            >
+              <Lock size={18} />
+              Acesso Restrito Admin
+              <ArrowRight size={18} className="opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+            </button>
+          </motion.form>
         </div>
 
-        {/* Card 3: Secretarias */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between">
-          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-3">Secretarias</span>
-          <span className="text-[32px] font-bold text-[#0f172a] leading-none">
-            {isLoading ? '...' : stats?.secretarias}
-          </span>
+        {/* Rodapé Esquerdo */}
+        <div className="mt-auto pt-8">
+          <p className="text-slate-400 text-xs">
+            Sistema protegido por autenticação integrada.
+          </p>
         </div>
-
-        {/* Card 4: Status Crawler */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between">
-          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-3">Status Crawler</span>
-          <span className="text-[28px] font-bold text-emerald-500 leading-none tracking-wide">
-            ATIVO
-          </span>
-        </div>
-
       </div>
 
-      {/* ── Tabela Últimas Capturas ───────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex-1">
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="text-[15px] font-bold text-[#1e293b]">Últimas Capturas (Notícias)</h2>
-          <button 
-            onClick={() => router.push('/noticias')}
-            className="text-[13px] font-semibold text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1"
-          >
-            Ver Todos &rarr;
-          </button>
-        </div>
+      {/* ── LADO DIREITO: DESTAQUE ──────────────────────────────────── */}
+      <div className="hidden lg:flex w-1/2 bg-[#001f3f] relative items-center justify-center p-12">
+        {/* Pattern de fundo sutil */}
+        <div className="absolute inset-0 opacity-10 pointer-events-none" 
+             style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '40px 40px' }} 
+        />
+        
+        {/* Card Flutuante conforme o print */}
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-md bg-[#002a54]/60 backdrop-blur-md border border-white/10 rounded-[32px] p-10 shadow-2xl"
+        >
+          <h3 className="text-slate-300 text-xl font-medium mb-2">Núcleo Central de</h3>
+          <h2 className="text-white text-4xl font-bold mb-6 tracking-tight">Gerenciamento</h2>
+          
+          <p className="text-slate-400 text-sm leading-relaxed mb-12">
+            Operação distribuída em tempo real para sincronização de dados oficiais entre os portais municipais.
+          </p>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-slate-100">
-                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest font-sans">Módulo</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest font-sans">Título</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest font-sans">Data de Coleta</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest font-sans">Status</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest font-sans">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-sm text-slate-400">
-                    Carregando dados...
-                  </td>
-                </tr>
-              ) : stats?.ultimas.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-sm text-slate-400">
-                    Nenhuma captura recente encontrada.
-                  </td>
-                </tr>
-              ) : (
-                stats?.ultimas.map((item: any, idx: number) => {
-                  const isDraft = item.status?.toLowerCase() === 'rascunho';
-                  
-                  return (
-                    <tr key={item.id || idx} className="hover:bg-slate-50/50 transition-colors group">
-                      <td className="px-6 py-4 text-[13px] text-slate-500 font-medium">
-                        Notícia
-                      </td>
-                      <td className="px-6 py-4 text-[13px] text-slate-800 font-medium truncate max-w-[300px]">
-                        {item.titulo}
-                      </td>
-                      <td className="px-6 py-4 text-[13px] text-slate-500">
-                        {formatTime(item.data_publicacao)}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                          isDraft 
-                            ? 'bg-amber-100 text-amber-700' 
-                            : 'bg-emerald-100 text-emerald-700'
-                        }`}>
-                          {isDraft ? 'Rascunho' : 'Publicado'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <button 
-                          onClick={() => router.push(`/noticias/${item.id}/edit`)}
-                          className="text-[13px] font-semibold text-slate-600 hover:text-blue-600 transition-colors"
-                        >
-                          {isDraft ? 'Moderar' : 'Editar'}
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+          <div className="flex items-center justify-between pt-6 border-t border-white/5">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Secure</span>
+            </div>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+              System v4.0.0
+            </span>
+          </div>
+        </motion.div>
+
+        {/* Efeito de luz decorativo */}
+        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-blue-600/20 blur-[120px] rounded-full pointer-events-none" />
       </div>
 
     </div>
   );
 }
-
