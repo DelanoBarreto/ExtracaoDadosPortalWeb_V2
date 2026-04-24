@@ -66,11 +66,24 @@ async function startScraping() {
         let dataOriginal = '';
         let competencia = '';
 
-        $d('div, p, span, strong').each((_, el) => {
+        $d('div, p, span, strong, td, th, li').each((_, el) => {
           const txt = $d(el).text().trim();
-          if (/^DATA:/i.test(txt)) dataOriginal = $d(el).next().text().trim() || txt.split(/DATA:/i)[1]?.trim();
-          if (/^COMPET[EÊ]NCIA:/i.test(txt)) competencia = $d(el).next().text().trim() || txt.split(/COMPET[EÊ]NCIA:/i)[1]?.trim();
+          
+          // Busca Data
+          if (txt.includes('DATA:') || txt.includes('Publicação:')) {
+            const val = txt.split(/DATA:|Publicação:/i)[1]?.trim() || $d(el).next().text().trim();
+            if (val && val.includes('/')) dataOriginal = val.split(' ')[0];
+          }
+          
+          // Busca Competência
+          if (txt.includes('COMPETÊNCIA:') || txt.includes('Referência:')) {
+            const val = txt.split(/COMPETÊNCIA:|Referência:/i)[1]?.trim() || $d(el).next().text().trim();
+            if (val) competencia = val;
+          }
         });
+
+        // Fallback para título se estiver vazio
+        if (!titulo) titulo = `Documento LRF ${competencia || id}`;
 
         const pdfLinks = [];
         $d('a[href*=".pdf"]').each((_, el) => {
@@ -104,7 +117,8 @@ async function startScraping() {
               data_publicacao: await formatarData(dataOriginal),
               arquivo_url: sUrl,
               url_original: pdfUrl,
-              tipo: titulo.split(' - ')[0] || 'LRF'
+              tipo: titulo.split(' - ')[0] || 'LRF',
+              status: 'publicado'
             });
             savedAny = true;
           }

@@ -141,32 +141,18 @@ export default function LRFPage() {
   const { data: result, isLoading } = useQuery({
     queryKey: ['lrf', municipioAtivo?.id, sortKey, sortDir, page, pageSize, searchQuery, statusFilter],
     queryFn: async () => {
-      let query = supabase
-        .from('tab_lrf')
-        .select('id, titulo, data_publicacao, arquivo_url, municipio_id, tipo, status', { count: 'exact' });
-
-      if (municipioAtivo?.id) {
-        query = query.eq('municipio_id', municipioAtivo.id);
-      }
-
-      if (searchQuery) {
-        query = query.ilike('titulo', `%${searchQuery}%`);
-      }
-
-      if (statusFilter !== 'Todos') {
-        let sf = statusFilter.toLowerCase();
-        if (sf === 'publicado') query = query.in('status', ['publicado', 'published']);
-        else if (sf === 'rascunho') query = query.in('status', ['rascunho', 'draft', null]);
-        else if (sf === 'arquivado') query = query.in('status', ['arquivado', 'archived']);
-        else query = query.eq('status', sf);
-      }
-
-      const { data, error, count } = await query
-        .order(sortKey as any, { ascending: sortDir === 'asc' })
-        .range(page * pageSize, (page + 1) * pageSize - 1);
-
-      if (error) throw error;
-      return { data: data ?? [], count: count ?? 0 };
+      const { data } = await axios.get('/api/admin/lrf/fetch', {
+        params: {
+          municipio_id: municipioAtivo?.id,
+          sortKey,
+          sortDir,
+          page,
+          pageSize,
+          searchQuery,
+          statusFilter
+        }
+      });
+      return data;
     },
   });
 
@@ -178,10 +164,13 @@ export default function LRFPage() {
   const { data: stats } = useQuery({
     queryKey: ['lrf-stats', municipioAtivo?.id],
     queryFn: async () => {
-      let query = supabase.from('tab_lrf').select('*', { count: 'exact', head: true });
-      if (municipioAtivo?.id) query = query.eq('municipio_id', municipioAtivo.id);
-      const res = await query;
-      return { count: res.count ?? 0 };
+      const { data } = await axios.get('/api/admin/lrf/fetch', {
+        params: {
+          municipio_id: municipioAtivo?.id,
+          pageSize: 1
+        }
+      });
+      return { count: data.count ?? 0 };
     }
   });
 

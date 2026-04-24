@@ -3,15 +3,27 @@ import * as cheerio from 'cheerio';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
-// Carrega .env da raiz do projeto
-dotenv.config({ path: path.join(process.cwd(), '../.env') });
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Tenta carregar .env de vários lugares para garantir funcionamento
+const envPaths = [
+  path.resolve(__dirname, '../../.env'), // Raiz do projeto (ExtracaoDados...)
+  path.resolve(process.cwd(), '.env'),
+  path.resolve(process.cwd(), '../.env'),
+  path.resolve(process.cwd(), 'portalgov-v3/.env'),
+];
+
+for (const p of envPaths) {
+  dotenv.config({ path: p });
+}
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-  console.error('❌ ERRO: Credenciais do Supabase não encontradas no .env');
+  console.error('❌ ERRO: Credenciais do Supabase não encontradas');
   process.exit(1);
 }
 

@@ -56,8 +56,11 @@ export async function POST(request: Request) {
     const { modulo = 'noticias', municipio_id, limit = 20 } = body;
 
     if (!municipio_id) {
+      console.error('❌ ERRO: municipio_id não fornecido no corpo da requisição');
       return NextResponse.json({ error: 'municipio_id é obrigatório.' }, { status: 400 });
     }
+
+    console.log(`🔍 API Scrape: Recebido modulo=${modulo}, municipio_id=${municipio_id}`);
 
     // Busca dados do município para passar as URLs corretas
     const { data: municipio, error: munError } = await supabaseAdmin

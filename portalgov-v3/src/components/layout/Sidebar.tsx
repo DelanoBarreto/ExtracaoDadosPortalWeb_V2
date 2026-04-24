@@ -20,7 +20,7 @@ import { supabase } from '@/lib/supabase';
 import { usePortalStore } from '@/store/usePortalStore';
 
 const MENU_ITEMS = [
-  { id: 'dashboard', label: 'Monitor Geral',      icon: LayoutDashboard, path: '/',            group: 'principal' },
+  { id: 'dashboard', label: 'Monitor Geral',      icon: LayoutDashboard, path: '/dashboard',   group: 'principal' },
   { id: 'noticias',  label: 'Notícias & Atos',    icon: Newspaper,       path: '/noticias',    group: 'conteudo' },
   { id: 'lrf',       label: 'Transparência LRF',  icon: FileText,        path: '/lrf',         group: 'conteudo' },
   { id: 'secretarias', label: 'Secretarias',      icon: Building2,       path: '/secretarias', group: 'conteudo' },
@@ -263,10 +263,29 @@ export function Sidebar() {
           }}>
             <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#1d4ed8' }}>A</span>
           </div>
-          <div>
+          <div style={{ flex: 1 }}>
             <p style={{ fontSize: '0.75rem', color: '#e2e8f0', fontWeight: 600 }}>Admin</p>
             <p style={{ fontSize: '0.65rem', color: '#64748b' }}>Portalgov Elite</p>
           </div>
+          <button 
+            onClick={() => router.push('/')}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              color: '#64748b',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '0.5rem',
+              borderRadius: '8px',
+              transition: 'all 0.2s'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.color = '#ef4444'}
+            onMouseOut={(e) => e.currentTarget.style.color = '#64748b'}
+          >
+            <LogOut size={16} />
+          </button>
         </div>
       </div>
 
