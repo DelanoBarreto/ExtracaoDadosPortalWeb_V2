@@ -125,8 +125,6 @@ export default function LRFPage() {
   const [confirmClear, setConfirmClear] = useState(false);
   const [deleteStorage, setDeleteStorage] = useState(false);
   const [dropdownBulkOpen, setDropdownBulkOpen] = useState(false);
-  const [isScraping, setIsScraping] = useState(false);
-  const [scrapeLimit, setScrapeLimit] = useState(20);
 
   // ── Realtime Sync ──────────────────────────────────────────────────
   useEffect(() => {
@@ -229,28 +227,10 @@ export default function LRFPage() {
     else { setSortKey(key); setSortDir('asc'); }
   };
 
-  const handleScrape = async () => {
-    if (!municipioAtivo || isScraping) return;
-    setIsScraping(true);
-    setLogPanelOpen(true);
-    try {
-      // GAP 1 CORRIGIDO: rota real é /api/scrape
-      await axios.post('/api/scrape', {
-        modulo: 'lrf',
-        municipio_id: municipioAtivo.id,
-        limit: scrapeLimit,
-      });
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsScraping(false);
-      qc.invalidateQueries({ queryKey: ['lrf'] });
-    }
-  };
 
   const columns = buildColumns(router, (id) => setConfirmDelete(id));
 
-  const actionsEnabled = !!municipioAtivo && !isScraping;
+  const actionsEnabled = !!municipioAtivo;
   const currentCount = stats?.count || 0;
 
   return (
@@ -322,27 +302,12 @@ export default function LRFPage() {
             />
           </div>
           
-          <div className="relative">
-            <select
-              value={scrapeLimit}
-              onChange={e => setScrapeLimit(parseInt(e.target.value))}
-              disabled={isScraping}
-              className="pl-3 pr-8 py-2 bg-white border border-slate-300 rounded-md text-[13px] font-semibold text-slate-700 outline-none cursor-pointer appearance-none"
-            >
-              {[5, 20, 50, 0].map(v => (
-                <option key={v} value={v}>{v === 0 ? 'Tudo' : `Coletar ${v}`}</option>
-              ))}
-            </select>
-            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
-          </div>
-
           <button 
-            onClick={handleScrape} 
-            disabled={!actionsEnabled || isScraping}
-            className="flex items-center gap-2 px-4 py-2 bg-city-hall-blue text-white rounded-md text-[13px] font-semibold hover:bg-city-hall-accent disabled:opacity-50 transition-colors"
+            onClick={() => router.push('/scraper?module=lrf')} 
+            className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-md text-[13px] font-semibold hover:bg-slate-900 transition-colors"
           >
-            {isScraping ? <RefreshCw size={15} className="animate-spin" /> : <RefreshCw size={15} />}
-            {isScraping ? 'Coletando...' : 'Iniciar Coleta'}
+            <Terminal size={15} />
+            Ir para o Console de Raspagem
           </button>
 
           <div className="relative">

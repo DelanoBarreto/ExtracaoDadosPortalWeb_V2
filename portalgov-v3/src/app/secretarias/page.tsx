@@ -299,6 +299,14 @@ export default function SecretariasPage() {
             />
           </div>
           
+          <button 
+            onClick={() => router.push('/scraper?module=secretarias')} 
+            className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-md text-[13px] font-semibold hover:bg-slate-900 transition-colors"
+          >
+            <Terminal size={15} />
+            Ir para o Console de Raspagem
+          </button>
+
           <div className="relative">
             <button 
               className={`flex items-center gap-2 px-4 py-2 border rounded-md text-[12px] font-semibold transition-colors ${
