@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Sidebar } from "@/components/layout/Sidebar";
+import { Header } from "@/components/layout/Header";
 
 export default function AdminLayout({
   children,
@@ -9,13 +10,18 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="app-shell">
+    <div className="flex h-screen bg-[#f8fafc] overflow-hidden">
+      {/* Sidebar Fixa */}
       <Sidebar />
-      <main className="main-content">
-        <div className="page-container">
+      
+      {/* Área Principal */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <Header />
+        
+        <main className="flex-1 overflow-y-auto p-8 lg:p-12">
           {children}
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
