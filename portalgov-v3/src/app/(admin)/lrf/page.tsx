@@ -2,16 +2,16 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Plus, Search, Download, ExternalLink,
-  ShieldCheck, Pencil, Trash2,
-  ChevronLeft, ChevronRight, ChevronDown, ListChecks, HardDrive
+  FileText, Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight,
+  HardDrive, Globe, X, Save, Loader2,
+  HardDrive as HardDriveIcon
 } from 'lucide-react';
 import { useMunicipalityStore } from '@/store/municipality';
-import { supabase } from '@/lib/supabase';
 import { DataTableV2, Column } from '@/components/shared/DataTableV2';
+import { BulkActionDropdown } from '@/components/shared/BulkActionDropdown';
 import axios from 'axios';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // ── Tipos ────────────────────────────────────────────────────────────────
@@ -28,9 +28,25 @@ interface LRFItem {
   status:           string | null;
 }
 
-// ── Colunas da Tabela (idênticas ao V1) ──────────────────────────────────
+// ── Helper de badge de status ─────────────────────────────────────────────
+function StatusBadge({ status }: { status: string | null }) {
+  const s = status?.toLowerCase() || '';
+  const isPublicado = s === 'publicado';
+  const isRascunho  = s === 'rascunho' || !status;
+  return (
+    <span className={`px-2 py-0.5 rounded-full text-[0.7rem] font-semibold uppercase ${
+      isPublicado ? 'bg-[#DCFCE7] text-[#166534]'
+      : isRascunho ? 'bg-[#FEF3C7] text-[#92400E]'
+      : 'bg-slate-100 text-slate-600'
+    }`}>
+      {isPublicado ? 'Publicado' : isRascunho ? 'Rascunho' : status}
+    </span>
+  );
+}
+
+// ── Colunas da Tabela ─────────────────────────────────────────────────────
 const buildColumns = (
-  router: ReturnType<typeof useRouter>,
+  onEdit:   (row: LRFItem) => void,
   onDelete: (id: string) => void,
 ): Column<LRFItem>[] => [
   {
@@ -38,10 +54,16 @@ const buildColumns = (
     label:    'TÍTULO / TIPO',
     sortable: true,
     render:   (val, row) => (
-      <div className="max-w-[440px]">
-        <p className="text-[0.85rem] text-slate-800 font-medium leading-snug">{val || 'Sem título'}</p>
-        <p className="text-[0.7rem] text-emerald-700 flex items-center gap-1 mt-0.5 font-semibold uppercase tracking-tight">
-          <ShieldCheck size={10} /> {row.tipo || 'LRF'}
+      <div className="max-w-[480px]">
+        <p 
+          className="text-[13px] text-slate-800 font-medium hover:text-[#004c99] cursor-pointer transition-colors line-clamp-2 leading-tight"
+          onClick={() => onEdit(row)}
+          title={val}
+        >
+          {val || 'Sem título'}
+        </p>
+        <p className="text-[11px] text-emerald-700 flex items-center gap-1 mt-0.5 font-bold uppercase tracking-tight">
+          <FileText size={11} /> {row.tipo || 'LRF'}
         </p>
       </div>
     ),
@@ -52,7 +74,7 @@ const buildColumns = (
     width:    '100px',
     sortable: true,
     render:   (val, row) => (
-      <span className="text-[0.85rem] font-medium text-slate-600">
+      <span className="text-[13px] text-slate-500">
         {val || (row.data_publicacao ? new Date(row.data_publicacao).getFullYear() : '—')}
       </span>
     ),
@@ -60,12 +82,18 @@ const buildColumns = (
   {
     key:    'competencia',
     label:  'REFERÊNCIA',
-    width:  '180px',
+    width:  '160px',
     render: (val, row) => (
-      <span className="text-[0.85rem] text-slate-500">
+      <span className="text-[13px] text-slate-500">
         {val || (row.data_publicacao ? new Date(row.data_publicacao).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }) : '—')}
       </span>
     ),
+  },
+  {
+    key:    'status',
+    label:  'STATUS',
+    width:  '110px',
+    render: (val) => <StatusBadge status={val} />,
   },
   {
     key:    'actions',
@@ -73,6 +101,13 @@ const buildColumns = (
     width:  '90px',
     render: (_, row) => (
       <div className="flex items-center justify-end gap-1">
+        <button
+          onClick={(e) => { e.stopPropagation(); onEdit(row); }}
+          className="p-1.5 text-slate-500 hover:text-[#004c99] hover:bg-blue-50 rounded-md transition-colors border border-transparent hover:border-blue-200"
+          title="Editar"
+        >
+          <Pencil size={16} />
+        </button>
         {row.arquivo_url && (
           <a
             href={row.arquivo_url}
@@ -82,7 +117,7 @@ const buildColumns = (
             className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors border border-transparent hover:border-emerald-200"
             title="Visualizar documento"
           >
-            <ExternalLink size={16} />
+            <Globe size={16} />
           </a>
         )}
         <button
@@ -98,8 +133,8 @@ const buildColumns = (
 ];
 
 export default function LRFPage() {
-  const router       = useRouter();
   const qc           = useQueryClient();
+  const router       = useRouter();
   const { currentMunicipality } = useMunicipalityStore();
 
   const [selectedIds,   setSelectedIds]   = useState<string[]>([]);
@@ -109,31 +144,18 @@ export default function LRFPage() {
   const [sortDir,       setSortDir]       = useState<'asc' | 'desc'>('desc');
   const [page,          setPage]          = useState(0);
   const pageSize                          = 20;
-  const [dropdownBulkOpen, setDropdownBulkOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | 'bulk' | null>(null);
   const [confirmClear,  setConfirmClear]  = useState(false);
   const [deleteStorage, setDeleteStorage] = useState(false);
 
-  // ── Stats dinâmicos para as abas ─────────────────────────────────────
+  // ── Stats dinâmicos via API (usa supabaseAdmin para furar o RLS) ────────
   const { data: counts } = useQuery({
     queryKey: ['lrf-counts', currentMunicipality?.id],
     queryFn: async () => {
-      const getCount = async (status?: string) => {
-        let q = supabase.from('tab_lrf').select('*', { count: 'exact', head: true });
-        if (currentMunicipality?.id) q = q.eq('municipio_id', currentMunicipality.id);
-        if (status === 'rascunho') q = q.or('status.eq.rascunho,status.is.null');
-        else if (status) q = q.eq('status', status);
-        const { count } = await q;
-        return count || 0;
-      };
-
-      const [total, pub, ras, arq] = await Promise.all([
-        getCount(),
-        getCount('publicado'),
-        getCount('rascunho'),
-        getCount('arquivado')
-      ]);
-      return { total, publicado: pub, rascunho: ras, arquivado: arq };
+      const { data } = await axios.get('/api/admin/lrf/counts', {
+        params: { municipio_id: currentMunicipality?.id }
+      });
+      return data as { total: number; publicado: number; rascunho: number; arquivado: number };
     }
   });
 
@@ -159,6 +181,11 @@ export default function LRFPage() {
   const itens = result?.data ?? [];
   const totalItems = result?.count ?? 0;
   const totalPages = Math.ceil(totalItems / pageSize);
+
+  // ── Handlers de edição ───────────────────────────────────────────────
+  const handleEdit = (row: LRFItem) => {
+    router.push(`/lrf/${row.id}/edit`);
+  };
 
   // ── Mutations ────────────────────────────────────────────────────────
   const deleteMutation = useMutation({
@@ -189,13 +216,12 @@ export default function LRFPage() {
 
   const bulkStatusMutation = useMutation({
     mutationFn: async ({ ids, status }: { ids: string[]; status: string }) => {
-      await supabase.from('tab_lrf').update({ status }).in('id', ids);
+      await axios.post('/api/admin/lrf/bulk-status', { ids, status });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['lrf'] });
       qc.invalidateQueries({ queryKey: ['lrf-counts'] });
       setSelectedIds([]);
-      setDropdownBulkOpen(false);
     },
   });
 
@@ -205,17 +231,17 @@ export default function LRFPage() {
     else { setSortKey(key); setSortDir('asc'); }
   };
 
-  const columns = buildColumns(router, (id) => setConfirmDelete(id));
+  const columns = buildColumns(handleEdit, (id) => setConfirmDelete(id));
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-4">
       {/* ── Page Header ────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-[32px] font-black text-slate-900 leading-tight tracking-tight">
+          <h1 className="text-[22px] font-black text-slate-900 leading-tight tracking-tight">
             Gestão Fiscal (LRF)
           </h1>
-          <p className="text-slate-500 text-[14px] font-medium mt-1">
+          <p className="text-slate-500 text-[13px] font-medium">
             Controle de documentos da Lei de Responsabilidade Fiscal para {currentMunicipality?.name || 'o município'}
           </p>
         </div>
@@ -223,21 +249,21 @@ export default function LRFPage() {
         <div className="flex items-center gap-3">
           <button 
             onClick={() => setConfirmClear(true)}
-            className="h-10 px-4 rounded-xl border border-red-100 bg-red-50/50 text-red-600 text-[13px] font-bold hover:bg-red-50 transition-all flex items-center gap-2"
+            className="h-9 px-3 rounded-xl border border-red-100 bg-red-50/50 text-red-600 text-[12px] font-bold hover:bg-red-50 transition-all flex items-center gap-2"
           >
             Limpar Módulo
           </button>
           <button 
             onClick={() => router.push('/lrf/new/edit')}
-            className="h-10 px-5 rounded-xl bg-[#004c99] text-white text-[13px] font-bold hover:bg-[#003366] transition-all flex items-center gap-2 shadow-lg shadow-blue-100"
+            className="h-9 px-4 rounded-xl bg-[#004c99] text-white text-[13px] font-bold hover:bg-[#003366] transition-all flex items-center gap-2 shadow-lg shadow-blue-100"
           >
-            <Plus size={18} /> Novo Documento
+            <Plus size={16} /> Novo Documento
           </button>
         </div>
       </div>
 
       {/* ── Status Tabs ────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-8 border-b border-slate-200 mb-2 overflow-x-auto no-scrollbar">
+      <div className="flex items-center gap-6 border-b border-slate-200 mb-2 overflow-x-auto no-scrollbar">
         {[
           { id: 'Todos', label: 'Todos', count: counts?.total },
           { id: 'Publicado', label: 'Publicado', count: counts?.publicado },
@@ -247,14 +273,14 @@ export default function LRFPage() {
           <button 
             key={tab.id}
             onClick={() => { setStatusFilter(tab.id); setPage(0); }}
-            className={`pb-4 flex items-center gap-2 text-[14px] font-bold transition-all border-b-2 relative ${
+            className={`pb-1.5 flex items-center gap-2 text-[13px] font-bold transition-all border-b-2 relative ${
               statusFilter === tab.id 
               ? 'text-slate-900 border-slate-900' 
               : 'text-slate-400 border-transparent hover:text-slate-600'
             }`}
           >
             {tab.label}
-            <span className={`text-[11px] ${statusFilter === tab.id ? 'text-slate-500' : 'text-slate-300'}`}>
+            <span className={`text-[10px] ${statusFilter === tab.id ? 'text-slate-500' : 'text-slate-300'}`}>
               {tab.count || 0}
             </span>
           </button>
@@ -262,61 +288,33 @@ export default function LRFPage() {
       </div>
 
       {/* ── Search & Bulk Actions ──────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-4 mb-2">
+      <div className="flex items-center justify-between gap-4 mb-1">
         <div className="flex items-center gap-4 flex-1">
           <div className="relative group flex-1 max-w-[320px]">
-            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-[#004c99]" />
+            <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-[#004c99]" />
             <input 
               type="text" 
               placeholder="Buscar documentos..."
               value={searchQuery}
               onChange={e => { setSearchQuery(e.target.value); setPage(0); }}
-              className="w-full h-11 pl-12 pr-4 bg-white border border-slate-200 rounded-xl text-[14px] font-medium outline-none focus:border-[#004c99] focus:ring-4 focus:ring-blue-50 transition-all placeholder:text-slate-400 shadow-sm"
+              className="w-full h-9 pl-11 pr-4 bg-white border border-slate-200 rounded-xl text-[13px] font-medium outline-none focus:border-[#004c99] focus:ring-4 focus:ring-blue-50 transition-all placeholder:text-slate-400 shadow-sm"
             />
           </div>
 
-          <div className="relative">
-            <button 
-              onClick={() => setDropdownBulkOpen(!dropdownBulkOpen)}
-              disabled={selectedIds.length === 0}
-              className={`h-11 px-5 border rounded-xl text-[13px] font-bold flex items-center gap-2 transition-all shadow-sm ${
-                selectedIds.length > 0 
-                ? 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50' 
-                : 'bg-slate-50 border-slate-100 text-slate-300 cursor-not-allowed'
-              }`}
-            >
-              <ListChecks size={18} /> Ações em Lote {selectedIds.length > 0 && `(${selectedIds.length})`} <ChevronDown size={16} />
-            </button>
-            
-            <AnimatePresence>
-              {dropdownBulkOpen && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                  className="absolute left-0 mt-2 w-56 bg-white border border-slate-100 rounded-2xl shadow-2xl z-50 py-2"
-                >
-                  <button onClick={() => bulkStatusMutation.mutate({ ids: selectedIds, status: 'publicado' })} className="w-full px-4 py-2.5 text-left text-[13px] font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-3">
-                    <ShieldCheck size={16} className="text-emerald-500" /> Publicar Selecionados
-                  </button>
-                  <button onClick={() => bulkStatusMutation.mutate({ ids: selectedIds, status: 'rascunho' })} className="w-full px-4 py-2.5 text-left text-[13px] font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-3">
-                    <Pencil size={16} className="text-amber-500" /> Mover para Rascunho
-                  </button>
-                  <button onClick={() => bulkStatusMutation.mutate({ ids: selectedIds, status: 'arquivado' })} className="w-full px-4 py-2.5 text-left text-[13px] font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-3">
-                    <HardDrive size={16} className="text-slate-400" /> Arquivar Selecionados
-                  </button>
-                  <div className="h-px bg-slate-100 my-1 mx-2" />
-                  <button onClick={() => setConfirmDelete('bulk')} className="w-full px-4 py-2.5 text-left text-[13px] font-bold text-red-500 hover:bg-red-50 flex items-center gap-3">
-                    <Trash2 size={16} /> Excluir Selecionados
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+          <BulkActionDropdown 
+            selectedCount={selectedIds.length}
+            actions={[
+              { label: 'Publicar Selecionados', icon: Globe, onClick: () => bulkStatusMutation.mutate({ ids: selectedIds, status: 'publicado' }), color: 'text-emerald-500' },
+              { label: 'Mover para Rascunho', icon: Pencil, onClick: () => bulkStatusMutation.mutate({ ids: selectedIds, status: 'rascunho' }), color: 'text-amber-500' },
+              { label: 'Arquivar Selecionados', icon: HardDriveIcon, onClick: () => bulkStatusMutation.mutate({ ids: selectedIds, status: 'arquivado' }), color: 'text-slate-400' },
+              { label: 'SEPARATOR', icon: X, onClick: () => {} },
+              { label: 'Excluir Selecionados', icon: Trash2, onClick: () => setConfirmDelete('bulk'), variant: 'danger' }
+            ]}
+          />
         </div>
 
-        <div className="text-[12px] font-black text-slate-400 uppercase tracking-widest px-4 py-2 border-l border-slate-200">
-          {totalItems} REGISTROS
+        <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-4 py-1.5 border-l border-slate-200">
+          {totalItems} DOCS
         </div>
       </div>
 

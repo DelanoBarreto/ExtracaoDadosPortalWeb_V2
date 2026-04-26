@@ -2,19 +2,46 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Lock, User, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Lock, User, ShieldCheck, ArrowRight, Building2 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
+import { useMunicipalityStore, Municipality } from '@/store/municipality';
 
 export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('admin123');
   const [error, setError] = useState('');
+  const { setMunicipalities, setCurrentMunicipality } = useMunicipalityStore();
+  const [dbMunicipalities, setDbMunicipalities] = useState<Municipality[]>([]);
+  const [selectedMun, setSelectedMun] = useState<string>('');
+  const [loadingMun, setLoadingMun] = useState(true);
+
+  useEffect(() => {
+    const fetchMun = async () => {
+      setLoadingMun(true);
+      const { data, error } = await supabase.from('tab_municipios').select('id, nome, url_base').order('nome');
+      if (data && !error) {
+        const formatted = data.map(m => ({ id: m.id, name: m.nome, url: m.url_base }));
+        setDbMunicipalities(formatted);
+        setMunicipalities(formatted);
+        if (formatted.length > 0) setSelectedMun(formatted[0].id);
+      }
+      setLoadingMun(false);
+    };
+    fetchMun();
+  }, [setMunicipalities]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     // Usuário padrão solicitado: admin / admin123
     if (username === 'admin' && password === 'admin123') {
+      if (!selectedMun) {
+        setError('Por favor, selecione um município primeiro.');
+        return;
+      }
+      setCurrentMunicipality(selectedMun);
       router.push('/dashboard');
     } else {
       setError('Credenciais inválidas. Use admin / admin123');
@@ -66,9 +93,16 @@ export default function LoginPage() {
               <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input 
                 type="text"
+                autoFocus
                 placeholder="Usuário"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    document.getElementById('input-password')?.focus();
+                  }
+                }}
                 className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-700"
               />
             </div>
@@ -76,12 +110,54 @@ export default function LoginPage() {
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input 
+                id="input-password"
                 type="password"
                 placeholder="Senha"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    document.getElementById('select-mun')?.focus();
+                  }
+                }}
                 className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-700"
               />
+            </div>
+
+            {/* Município Selection */}
+            <div className="relative">
+              <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <select
+                id="select-mun"
+                value={selectedMun}
+                onChange={(e) => setSelectedMun(e.target.value)}
+                disabled={loadingMun}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (!loadingMun && dbMunicipalities.length > 0) {
+                      handleLogin(e as any);
+                    }
+                  }
+                }}
+                className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-700 appearance-none disabled:opacity-50"
+              >
+                {loadingMun ? (
+                  <option value="">Carregando municípios...</option>
+                ) : dbMunicipalities.length === 0 ? (
+                  <option value="">Nenhum município cadastrado</option>
+                ) : (
+                  dbMunicipalities.map(m => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))
+                )}
+              </select>
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
             </div>
 
             {error && (
@@ -90,11 +166,23 @@ export default function LoginPage() {
 
             <button 
               type="submit"
-              className="w-full flex items-center justify-center gap-3 py-4 bg-[#004a99] text-white rounded-xl font-bold hover:bg-[#003d7a] transition-all shadow-lg shadow-blue-900/20 group active:scale-[0.98]"
+              disabled={loadingMun || dbMunicipalities.length === 0}
+              className={`w-full flex items-center justify-center gap-3 py-4 text-white rounded-xl font-bold transition-all shadow-lg group active:scale-[0.98] ${
+                loadingMun || dbMunicipalities.length === 0 
+                  ? 'bg-slate-400 cursor-not-allowed shadow-none' 
+                  : 'bg-[#004a99] hover:bg-[#003d7a] shadow-blue-900/20 cursor-pointer'
+              }`}
             >
               <Lock size={18} />
-              Acesso Restrito Admin
-              <ArrowRight size={18} className="opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+              {loadingMun 
+                ? 'Carregando...' 
+                : dbMunicipalities.length === 0 
+                  ? 'Acesso Bloqueado (Sem Municípios)' 
+                  : 'Acesso Restrito Admin'
+              }
+              {(!loadingMun && dbMunicipalities.length > 0) && (
+                <ArrowRight size={18} className="opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+              )}
             </button>
           </motion.form>
         </div>

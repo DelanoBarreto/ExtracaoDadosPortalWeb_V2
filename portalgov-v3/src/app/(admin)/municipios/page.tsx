@@ -182,9 +182,9 @@ export default function MunicipiosPage() {
       </nav>
 
       {/* ── Page Header ────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-[32px] font-black text-slate-900 leading-tight tracking-tight">
+          <h1 className="text-[26px] font-black text-slate-900 leading-tight tracking-tight">
             Municípios & Portais
           </h1>
           <p className="text-slate-500 text-[14px] font-medium mt-1">
@@ -203,7 +203,7 @@ export default function MunicipiosPage() {
       </div>
 
       {/* ── Search & Bulk Actions ──────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-4 mb-6">
+      <div className="flex items-center justify-between gap-4 mb-4">
         <div className="flex items-center gap-4 flex-1">
           <div className="relative group flex-1 max-w-[320px]">
             <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-[#004c99]" />
@@ -212,18 +212,17 @@ export default function MunicipiosPage() {
               placeholder="Buscar cidades..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full h-11 pl-12 pr-4 bg-white border border-slate-200 rounded-xl text-[14px] font-medium outline-none focus:border-[#004c99] focus:ring-4 focus:ring-blue-50 transition-all placeholder:text-slate-400 shadow-sm"
+              className="w-full h-10 pl-11 pr-4 bg-white border border-slate-200 rounded-xl text-[14px] font-medium outline-none focus:border-[#004c99] focus:ring-4 focus:ring-blue-50 transition-all placeholder:text-slate-400 shadow-sm"
             />
           </div>
 
           <div className="relative">
             <button 
               onClick={() => setDropdownBulkOpen(!dropdownBulkOpen)}
-              disabled={selectedIds.length === 0}
-              className={`h-11 px-5 border rounded-xl text-[13px] font-bold flex items-center gap-2 transition-all shadow-sm ${
+              className={`h-10 px-5 border rounded-xl text-[13px] font-bold flex items-center gap-2 transition-all shadow-sm ${
                 selectedIds.length > 0 
                 ? 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50' 
-                : 'bg-slate-50 border-slate-100 text-slate-300 cursor-not-allowed'
+                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
               }`}
             >
               <ListChecks size={18} /> Ações em Lote {selectedIds.length > 0 && `(${selectedIds.length})`} <ChevronDown size={16} />
@@ -237,14 +236,26 @@ export default function MunicipiosPage() {
                   exit={{ opacity: 0, y: 10 }}
                   className="absolute left-0 mt-2 w-56 bg-white border border-slate-100 rounded-2xl shadow-2xl z-50 py-2"
                 >
-                  <button onClick={() => bulkStatusMutation.mutate({ ids: selectedIds, status: 'ativo' })} className="w-full px-4 py-2.5 text-left text-[13px] font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-3">
+                  <button 
+                    disabled={selectedIds.length === 0}
+                    onClick={() => bulkStatusMutation.mutate({ ids: selectedIds, status: 'ativo' })} 
+                    className={`w-full px-4 py-2.5 text-left text-[13px] font-bold text-slate-700 flex items-center gap-3 ${selectedIds.length === 0 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-50'}`}
+                  >
                     <Building2 size={16} className="text-emerald-500" /> Ativar Selecionados
                   </button>
-                  <button onClick={() => bulkStatusMutation.mutate({ ids: selectedIds, status: 'inativo' })} className="w-full px-4 py-2.5 text-left text-[13px] font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-3">
+                  <button 
+                    disabled={selectedIds.length === 0}
+                    onClick={() => bulkStatusMutation.mutate({ ids: selectedIds, status: 'inativo' })} 
+                    className={`w-full px-4 py-2.5 text-left text-[13px] font-bold text-slate-700 flex items-center gap-3 ${selectedIds.length === 0 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-50'}`}
+                  >
                     <Plus size={16} className="text-slate-400 rotate-45" /> Desativar Selecionados
                   </button>
                   <div className="h-px bg-slate-100 my-1 mx-2" />
-                  <button onClick={() => setConfirmDelete('bulk')} className="w-full px-4 py-2.5 text-left text-[13px] font-bold text-red-500 hover:bg-red-50 flex items-center gap-3">
+                  <button 
+                    disabled={selectedIds.length === 0}
+                    onClick={() => setConfirmDelete('bulk')} 
+                    className={`w-full px-4 py-2.5 text-left text-[13px] font-bold text-red-500 flex items-center gap-3 ${selectedIds.length === 0 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-red-50'}`}
+                  >
                     <Trash2 size={16} /> Remover permanentemente
                   </button>
                 </motion.div>

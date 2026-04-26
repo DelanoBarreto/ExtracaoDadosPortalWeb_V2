@@ -1,7 +1,7 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
-const { supabase } = require('./src/lib/supabase-bot');
-const scraperService = require('./src/services/scraper-service');
+const { supabase } = require('../legacy_backup/src/lib/supabase-bot');
+const scraperService = require('../legacy_backup/src/services/scraper-service');
 
 
 
@@ -270,7 +270,8 @@ async function rasparLRF() {
                             data_publicacao: dataPublicacao,
                             arquivo_url: storageUrl,
                             url_original: urlParteOriginal,
-                            tipo: tipoDetetado
+                            tipo: tipoDetetado,
+                            status: 'rascunho'
                         });
                         algumNovoSalvo = true;
                     }

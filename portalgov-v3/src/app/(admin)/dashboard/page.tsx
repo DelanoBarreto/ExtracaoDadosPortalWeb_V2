@@ -80,7 +80,7 @@ export default function DashboardPage() {
           </div>
           <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest block mb-1">Rascunhos Notícias</span>
           <span className="text-[32px] font-black text-slate-900 leading-none">
-            {isLoading ? '...' : stats?.noticiasRascunho}
+            {isLoading ? '...' : (stats?.noticiasRascunho ?? '0')}
           </span>
         </motion.div>
 
@@ -98,7 +98,7 @@ export default function DashboardPage() {
           </div>
           <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest block mb-1">Arquivos LRF</span>
           <span className="text-[32px] font-black text-slate-900 leading-none">
-            {isLoading ? '...' : stats?.lrf}
+            {isLoading ? '...' : (stats?.lrf ?? '0')}
           </span>
         </motion.div>
 
@@ -116,7 +116,7 @@ export default function DashboardPage() {
           </div>
           <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest block mb-1">Total Secretarias</span>
           <span className="text-[32px] font-black text-slate-900 leading-none">
-            {isLoading ? '...' : stats?.secretarias}
+            {isLoading ? '...' : (stats?.secretarias ?? '0')}
           </span>
         </motion.div>
 
@@ -132,7 +132,7 @@ export default function DashboardPage() {
           </div>
           <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest block mb-1">Crawler Engine</span>
           <span className="text-[20px] font-black text-emerald-600 leading-none uppercase tracking-wider">
-            Sincronizado
+            {currentMunicipality ? 'Sincronizado' : 'Aguardando'}
           </span>
         </motion.div>
 

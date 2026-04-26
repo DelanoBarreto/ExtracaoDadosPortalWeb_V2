@@ -74,9 +74,9 @@ export async function POST(request: Request) {
     }
 
     const SCRIPT_MAP: Record<string, string> = {
-      'noticias': 'scrape-noticias.js',
-      'lrf': 'scrape-lrf.js',
-      'secretarias': 'scrape-secretarias.js',
+      'noticias': 'raspar-noticias-v2.js',
+      'lrf': 'raspar-lrf.js',
+      'secretarias': 'raspar-secretarias-v1.js',
     };
 
     const targetScript = SCRIPT_MAP[modulo];
@@ -86,10 +86,11 @@ export async function POST(request: Request) {
 
     // Resolvendo de forma segura para evitar problemas do Turbopack
     const baseDir = process.cwd();
-    const crawlerPath = path.resolve(baseDir, '..', 'crawler', 'scripts', targetScript);
+    const rootDir = path.resolve(baseDir, '..');
+    const crawlerPath = path.resolve(rootDir, 'crawlers', targetScript);
     
     if (!fs.existsSync(crawlerPath)) {
-      return NextResponse.json({ error: `Script não encontrado na nova estrutura V4: ${targetScript}` }, { status: 404 });
+      return NextResponse.json({ error: `Script não encontrado na estrutura: ${targetScript} em ${crawlerPath}` }, { status: 404 });
     }
 
     const logMsg = `🚀 [${new Date().toLocaleTimeString()}] INICIANDO: [${modulo.toUpperCase()}] | Limite: ${limit} | Município: ${municipio.nome}\n`;
@@ -97,14 +98,14 @@ export async function POST(request: Request) {
     
     isProcessing = true;
 
-    // Dispara o processo
+    // Dispara o processo garantindo que o cwd seja a raiz do projeto (para pegar o .env correto)
     currentProcess = spawn('node', [
       crawlerPath,
       `--limit=${limit}`,
       `--municipio_id=${municipio.id}`,
       `--url_base=${municipio.url_base}`,
       `--municipio_nome=${municipio.nome}`
-    ]);
+    ], { cwd: rootDir });
 
     // Captura logs em tempo real para o arquivo de log
     currentProcess.stdout.on('data', (data: any) => {

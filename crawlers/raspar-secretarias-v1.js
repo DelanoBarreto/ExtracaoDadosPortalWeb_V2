@@ -3,13 +3,13 @@ const { createClient } = require('@supabase/supabase-js');
 const parseArgs = require('util').parseArgs;
 const axios = require('axios');
 const fs = require('fs');
-const scraperService = require('./src/services/scraper-service');
+const scraperService = require('../legacy_backup/src/services/scraper-service');
 
 // Carrega variáveis do .env da raiz
-require('dotenv').config({ path: __dirname + '/.env' });
+require('dotenv').config({ path: __dirname + '/../.env' });
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_SECRET_KEY;
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
     console.error('❌ Faltam variáveis de ambiente do Supabase (URL ou KEY).');

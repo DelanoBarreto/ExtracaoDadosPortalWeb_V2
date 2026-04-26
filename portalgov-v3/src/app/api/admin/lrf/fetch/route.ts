@@ -14,15 +14,10 @@ export async function GET(request: Request) {
 
     let query = supabaseAdmin
       .from('tab_lrf')
-      .select('id, titulo, data_publicacao, arquivo_url, municipio_id, tipo, status', { count: 'exact' });
+      .select('id, titulo, data_publicacao, arquivo_url, municipio_id, tipo, status, ano, competencia, url_original', { count: 'exact' });
 
-    if (municipio_id) {
-      query = query.eq('municipio_id', municipio_id);
-    }
-
-    if (searchQuery) {
-      query = query.ilike('titulo', `%${searchQuery}%`);
-    }
+    if (municipio_id) query = query.eq('municipio_id', municipio_id);
+    if (searchQuery) query = query.ilike('titulo', `%${searchQuery}%`);
 
     if (statusFilter && statusFilter !== 'Todos') {
       const sf = statusFilter.toLowerCase();
@@ -38,11 +33,33 @@ export async function GET(request: Request) {
       .range(page * pageSize, (page + 1) * pageSize - 1);
 
     if (error) throw error;
-
     return NextResponse.json({ data: data ?? [], count: count ?? 0 });
 
   } catch (error: any) {
     console.error('❌ Erro no fetch-lrf:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json();
+    const { id, ...fields } = body;
+
+    if (!id) return NextResponse.json({ error: 'ID obrigatório' }, { status: 400 });
+
+    const { data, error } = await supabaseAdmin
+      .from('tab_lrf')
+      .update(fields)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return NextResponse.json({ data });
+
+  } catch (error: any) {
+    console.error('❌ Erro ao atualizar LRF:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

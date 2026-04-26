@@ -8,6 +8,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMunicipalityStore, Municipality } from '@/store/municipality';
 import { supabase } from '@/lib/supabase';
+import axios from 'axios';
 
 const PAGE_SIZE = 15;
 
@@ -95,73 +96,87 @@ export default function ConfiguracoesPage() {
     try {
       if (editingId) {
         // Editar
-        const { error } = await supabase
-          .from('tab_municipios')
-          .update({ nome: form.nome.trim(), url_base: form.url_base.trim() })
-          .eq('id', editingId);
+        const res = await axios.post('/api/admin/municipios', {
+          action: 'update',
+          id: editingId,
+          nome: form.nome.trim(),
+          url_base: form.url_base.trim()
+        });
 
-        if (!error) {
+        if (res.data.data) {
           updateMunicipality({ id: editingId, name: form.nome.trim(), url: form.url_base.trim() });
           setShowForm(false);
+        } else {
+          console.error("Erro ao editar:", res.data.error);
+          alert(`Erro ao editar: ${res.data.error}`);
         }
       } else {
         // Novo
-        const { data, error } = await supabase
-          .from('tab_municipios')
-          .insert([{ nome: form.nome.trim(), url_base: form.url_base.trim(), status: 'ativo' }])
-          .select()
-          .single();
+        const res = await axios.post('/api/admin/municipios', {
+          action: 'insert',
+          nome: form.nome.trim(),
+          url_base: form.url_base.trim()
+        });
 
-        if (data && !error) {
+        if (res.data.data) {
+          const data = res.data.data;
           addMunicipality({ id: data.id, name: data.nome, url: data.url_base });
           setCurrentMunicipality(data.id);
           setShowForm(false);
+        } else {
+          console.error("Erro ao inserir:", res.data.error);
+          alert(`Erro ao inserir: ${res.data.error || 'Desconhecido'}`);
         }
       }
+    } catch (err: any) {
+        console.error("Erro na requisição:", err);
+        alert(`Erro na requisição: ${err.response?.data?.error || err.message}`);
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from('tab_municipios').delete().eq('id', id);
-    if (!error) {
+    try {
+      await axios.post('/api/admin/municipios', { action: 'delete', id });
       removeMunicipality(id);
       setConfirmDelete(null);
+    } catch (err: any) {
+      console.error("Erro ao excluir:", err);
+      alert(`Erro ao excluir: ${err.response?.data?.error || err.message}`);
     }
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col gap-8">
-
+    <div className="flex flex-col gap-4">
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-[32px] font-black text-slate-900 leading-tight tracking-tight">
+          <h1 className="text-[22px] font-black text-slate-900 leading-tight tracking-tight">
             Configurações
           </h1>
-          <p className="text-slate-500 text-[14px] font-medium mt-1">
+          <p className="text-slate-500 text-[13px] font-medium">
             Gerencie os municípios monitorados e preferências do sistema
           </p>
         </div>
         <button
           onClick={openNew}
-          className="h-10 px-5 rounded-xl bg-[#004c99] text-white text-[13px] font-bold hover:bg-[#003366] transition-all flex items-center gap-2 shadow-lg shadow-blue-100"
+          className="h-9 px-4 rounded-xl bg-[#004c99] text-white text-[13px] font-bold hover:bg-[#003366] transition-all flex items-center gap-2 shadow-lg shadow-blue-100"
         >
-          <Plus size={18} /> Novo Município
+          <Plus size={16} /> Novo Município
         </button>
       </div>
 
       {/* ── Card Principal: Município Ativo ──────────────────────────────────── */}
       {currentMunicipality && (
-        <div className="bg-[#004c99]/5 border border-[#004c99]/15 rounded-2xl p-5 flex items-center gap-5">
-          <div className="w-12 h-12 rounded-xl bg-[#004c99] flex items-center justify-center text-white font-black text-lg shrink-0">
+        <div className="bg-[#004c99]/5 border border-[#004c99]/15 rounded-2xl p-4 flex items-center gap-4">
+          <div className="w-10 h-10 rounded-xl bg-[#004c99] flex items-center justify-center text-white font-black text-base shrink-0">
             {currentMunicipality.name.slice(0, 2).toUpperCase()}
           </div>
           <div className="flex-1">
             <p className="text-[10px] font-black text-[#004c99] uppercase tracking-widest mb-0.5">Município Ativo</p>
-            <p className="text-[15px] font-bold text-slate-900">{currentMunicipality.name}</p>
+            <p className="text-[14px] font-bold text-slate-900 leading-none">{currentMunicipality.name}</p>
             <p className="text-[12px] text-slate-500 flex items-center gap-1 mt-0.5">
               <Globe size={11} /> {currentMunicipality.url}
             </p>
@@ -176,19 +191,19 @@ export default function ConfiguracoesPage() {
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         
         {/* Toolbar */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-4">
-          <div className="relative group flex-1 max-w-[360px]">
-            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#004c99]" />
+        <div className="px-6 py-2 border-b border-slate-100 flex items-center gap-4">
+          <div className="relative group flex-1 max-w-[320px]">
+            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#004c99]" />
             <input
               type="text"
-              placeholder={`Buscar entre ${municipalities.length} municípios...`}
+              placeholder={`Buscar municípios...`}
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full h-10 pl-10 pr-4 border border-slate-200 rounded-xl text-[13px] font-medium outline-none focus:border-[#004c99] focus:ring-4 focus:ring-blue-50 transition-all placeholder:text-slate-400"
+              className="w-full h-9 pl-10 pr-4 border border-slate-200 rounded-xl text-[13px] font-medium outline-none focus:border-[#004c99] focus:ring-4 focus:ring-blue-50 transition-all placeholder:text-slate-400 shadow-sm"
             />
           </div>
-          <span className="ml-auto text-[12px] font-bold text-slate-400 uppercase tracking-widest">
-            {filtered.length} REGISTROS
+          <span className="ml-auto text-[11px] font-black text-slate-400 uppercase tracking-widest px-4 py-1.5 border-l border-slate-200">
+            {filtered.length} DOCS
           </span>
         </div>
 
@@ -196,13 +211,13 @@ export default function ConfiguracoesPage() {
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-slate-100 bg-[#F8FAFC]">
-              <th className="px-6 py-3 text-[0.7rem] font-normal uppercase text-slate-500 tracking-wider w-8">
+              <th className="px-6 py-2.5 text-[0.7rem] font-normal uppercase text-slate-500 tracking-wider w-8">
                 {/* Check coluna */}
               </th>
-              <th className="px-6 py-3 text-[0.7rem] font-normal uppercase text-slate-500 tracking-wider">Nome do Município</th>
-              <th className="px-6 py-3 text-[0.7rem] font-normal uppercase text-slate-500 tracking-wider">URL Base</th>
-              <th className="px-6 py-3 text-[0.7rem] font-normal uppercase text-slate-500 tracking-wider text-center w-24">Status</th>
-              <th className="px-6 py-3 text-[0.7rem] font-normal uppercase text-slate-500 tracking-wider text-right w-24">Ações</th>
+              <th className="px-6 py-2.5 text-[0.7rem] font-normal uppercase text-slate-500 tracking-wider">Nome do Município</th>
+              <th className="px-6 py-2.5 text-[0.7rem] font-normal uppercase text-slate-500 tracking-wider">URL Base</th>
+              <th className="px-6 py-2.5 text-[0.7rem] font-normal uppercase text-slate-500 tracking-wider text-center w-24">Status</th>
+              <th className="px-6 py-2.5 text-[0.7rem] font-normal uppercase text-slate-500 tracking-wider text-right w-24">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -229,14 +244,14 @@ export default function ConfiguracoesPage() {
                     isAtivo ? 'bg-blue-50/40' : 'hover:bg-slate-50/50'
                   }`}
                 >
-                  <td className="px-6 py-3 w-8">
+                  <td className="px-6 py-2.5 w-8">
                     {isAtivo && (
                       <div className="w-5 h-5 rounded-full bg-[#004c99] flex items-center justify-center">
                         <Check size={10} className="text-white" />
                       </div>
                     )}
                   </td>
-                  <td className="px-6 py-3">
+                  <td className="px-6 py-2.5">
                     <div className="flex items-center gap-3">
                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black shrink-0 ${
                         isAtivo ? 'bg-[#004c99] text-white' : 'bg-slate-100 text-slate-600'
@@ -248,7 +263,7 @@ export default function ConfiguracoesPage() {
                       </span>
                     </div>
                   </td>
-                  <td className="px-6 py-3 text-[0.8rem] text-slate-500 font-medium">
+                  <td className="px-6 py-2.5 text-[0.8rem] text-slate-500 font-medium">
                     <span className="flex items-center gap-1.5">
                       <Globe size={12} className="text-slate-400 shrink-0" />
                       <span className="truncate max-w-[260px]">{m.url}</span>
@@ -354,8 +369,15 @@ export default function ConfiguracoesPage() {
                     Nome da Prefeitura
                   </label>
                   <input
+                    autoFocus
                     value={form.nome}
                     onChange={e => setForm(f => ({ ...f, nome: e.target.value }))}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        document.getElementById('input-url-base')?.focus();
+                      }
+                    }}
                     placeholder="Ex: Prefeitura de Aracati"
                     className="w-full h-11 px-4 border border-slate-200 rounded-xl text-[14px] font-medium outline-none focus:border-[#004c99] focus:ring-4 focus:ring-blue-50 transition-all placeholder:text-slate-300"
                   />
@@ -365,8 +387,17 @@ export default function ConfiguracoesPage() {
                     URL Base (domínio do portal)
                   </label>
                   <input
+                    id="input-url-base"
                     value={form.url_base}
                     onChange={e => setForm(f => ({ ...f, url_base: e.target.value }))}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (form.nome.trim() && form.url_base.trim() && !saving) {
+                          handleSave();
+                        }
+                      }
+                    }}
                     placeholder="Ex: https://www.aracati.ce.gov.br"
                     className="w-full h-11 px-4 border border-slate-200 rounded-xl text-[14px] font-medium outline-none focus:border-[#004c99] focus:ring-4 focus:ring-blue-50 transition-all placeholder:text-slate-300"
                   />

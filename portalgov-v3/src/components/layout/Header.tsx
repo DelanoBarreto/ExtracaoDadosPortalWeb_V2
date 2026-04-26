@@ -8,7 +8,7 @@ export function Header() {
   const { currentMunicipality } = useMunicipalityStore();
 
   return (
-    <header className="h-16 border-b border-slate-100 bg-white flex items-center justify-between px-8 z-30">
+    <header className="h-14 border-b border-slate-100 bg-white flex items-center justify-between px-6 z-30">
       <div className="flex items-center gap-4">
         {currentMunicipality && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg">
