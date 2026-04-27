@@ -36,35 +36,62 @@ async function extrairDetalhesNoticia(url) {
     let categoria = 'Geral';
     let dataPublicacao = null;
 
-    const metaContainer = $('.fa-user').parent();
+    // Escopo da notícia para evitar pegar ícones do rodapé
+    const newsContainer = $('#Noticia, article, .noticia-detalhe').first();
+    
+    // Tenta capturar o container de metadados (FontAwesome ou Bootstrap Icons)
+    // Procuramos especificamente dentro do contexto da notícia
+    let metaContainer = newsContainer.find('.fa-user, .bi-person-circle').first().parent();
+    
+    // Se não achou no container específico, tenta no body (fallback)
+    if (!metaContainer.length) {
+        metaContainer = $('.fa-user, .bi-person-circle').first().parent();
+    }
+
     const metaLine = metaContainer.text().replace(/\s+/g, ' ').trim();
     
     // Data
     const dataMatch = metaLine.match(/(\d{2}\/\d{2}\/\d{4})/);
-    if (dataMatch) dataPublicacao = formatarData(dataMatch[0]);
+    if (dataMatch) {
+        dataPublicacao = formatarData(dataMatch[0]);
+    } else {
+        // Busca data em qualquer lugar da notícia ou body
+        const anyDataMatch = newsContainer.text().match(/(\d{2}\/\d{2}\/\d{4})/) || $('body').text().match(/(\d{2}\/\d{2}\/\d{4})/);
+        if (anyDataMatch) dataPublicacao = formatarData(anyDataMatch[0]);
+    }
 
     // Autor
     const autorMatch = metaLine.match(/Por\s+(.*?)(?=\s\d{2}\/\d{2}|$|#)/i);
-    if (autorMatch) autor = autorMatch[1].trim();
-
-    // Categoria
-    // Tenta primeiro capturar o texto da hashtag no metaLine
-    const catMatch = metaLine.match(/#(\w+)/);
-    if (catMatch) categoria = catMatch[1];
-    
-    // Se ainda for Geral, tenta olhar se há um link de categoria
-    if (categoria === 'Geral') {
-        const linkCat = $('.fa-tag').parent().text().trim();
-        if (linkCat) categoria = linkCat.replace('#', '');
+    if (autorMatch) {
+        autor = autorMatch[1].trim();
+    } else {
+        const bAutor = newsContainer.find('.bi-person-circle, .fa-user').parent().text().match(/Por\s+(.*?)\s+\d{2}\//)?.[1]?.trim();
+        if (bAutor) autor = bAutor;
     }
 
-    if (autor === 'Prefeitura' || autor.toLowerCase() === 'pre.') {
-      const bAutor = $('.bi-person-circle').parent().text().match(/Por\s+(.*?)\s+\d{2}\//)?.[1]?.trim();
-      if (bAutor) autor = bAutor;
+    // Categoria (Default 'Geral' já está setado)
+    // 1. Tenta hashtag no metaLine (incluindo acentos)
+    const catMatch = metaLine.match(/#([a-zA-Zà-úÀ-Ú0-9_-]+)/);
+    if (catMatch) {
+        categoria = catMatch[1];
+    } 
+    // 2. Se ainda for Geral, tenta ícones de tag dentro da notícia
+    else {
+        const tagText = newsContainer.find('.fa-tag, .bi-tag, .bi-tag-fill').first().parent().text().trim();
+        if (tagText) {
+            categoria = tagText.replace('#', '').trim();
+        }
     }
-    if (!dataPublicacao) {
-      const matchData = $('body').text().match(/(\d{2}\/\d{2}\/\d{4})/);
-      dataPublicacao = matchData ? formatarData(matchData[0]) : null;
+
+    // 3. Fallback final: Selector específico sugerido pelo usuário
+    if (categoria === 'Geral' || !categoria) {
+        const specificCat = newsContainer.find('center > span > span:nth-child(3), center > span > span:contains("#")').text().trim();
+        if (specificCat) categoria = specificCat.replace('#', '').trim();
+    }
+
+    // Garante que categoria nunca seja vazio ou nulo (sempre 'Geral' se não achar)
+    if (!categoria || categoria.trim() === '') {
+        categoria = 'Geral';
     }
 
     // 3. EXTRAÇÃO DE RESUMO E CONTEÚDO
