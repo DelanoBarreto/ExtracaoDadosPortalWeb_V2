@@ -1,8 +1,8 @@
 const axios = require('axios');
 const { supabase } = require('../lib/supabase-bot');
 
-// Limite seguro: 45MB (90% do limite de 50MB do Supabase Free)
-const MAX_UPLOAD_BYTES = 45 * 1024 * 1024;
+// Limite seguro: 40MB (80% do limite de 50MB do Supabase Free)
+const MAX_UPLOAD_BYTES = 40 * 1024 * 1024;
 
 class ScraperService {
   /**
@@ -32,11 +32,10 @@ class ScraperService {
 
       const originalName = url.split('/').pop().split('?')[0];
       const fileName = this.sanitizeFilename(originalName);
-      const timestamp = Date.now();
       
       // Constrói o path com a pasta, se fornecida
       const folder = folderPath ? (folderPath.endsWith('/') ? folderPath : `${folderPath}/`) : '';
-      const path = `${folder}${timestamp}_${fileName}`;
+      const path = `${folder}${fileName}`;
 
       const { error } = await supabase.storage
         .from(bucketName)
@@ -74,13 +73,12 @@ class ScraperService {
       const sizeMB   = (buffer.length / 1024 / 1024).toFixed(1);
       const originalName = url.split('/').pop().split('?')[0];
       const fileName = this.sanitizeFilename(originalName);
-      const timestamp = Date.now();
       
       const folder = folderPath ? (folderPath.endsWith('/') ? folderPath : `${folderPath}/`) : '';
 
       // ── Arquivo dentro do limite ──────────────────────────────────────────
       if (buffer.length <= MAX_UPLOAD_BYTES) {
-        const path = `${folder}${timestamp}_${fileName}`;
+        const path = `${folder}${fileName}`;
         const { error } = await supabase.storage
           .from(bucketName)
           .upload(path, buffer, { contentType: 'application/pdf', upsert: true });
@@ -130,7 +128,10 @@ class ScraperService {
 
         const partBuffer = Buffer.from(await partDoc.save());
         const parteMB    = (partBuffer.length / 1024 / 1024).toFixed(1);
-        const partePath  = `${folder}${timestamp}_parte${parte}of${numPartes}_${fileName}`;
+        
+        // Remove a extensão .pdf do nome para adicionar o sufixo de parte corretamente
+        const baseName = fileName.replace(/\.pdf$/i, '');
+        const partePath  = `${folder}${baseName}_PARTE_${parte}.pdf`;
         const urlParteOriginal = `${url}#parte${parte}de${numPartes}`;
 
         const { error: uploadErr } = await supabase.storage

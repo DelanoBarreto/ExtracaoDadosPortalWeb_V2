@@ -3,7 +3,7 @@
 import { useRouter, useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { 
-  ArrowLeft, Save, Calendar, FileText, Loader2, UploadCloud, ChevronDown, Plus, X, Trash2
+  ArrowLeft, Save, Calendar, FileText, Loader2, UploadCloud, ChevronDown, Plus, X, Trash2, Globe, ArrowUpDown
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
@@ -17,6 +17,22 @@ export default function EditLRFPage() {
   const { currentMunicipality } = useMunicipalityStore();
   const id = params.id;
   const [isUploading, setIsUploading] = useState(false);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | null>(null);
+
+  const handleSort = () => {
+    const nextOrder = sortOrder === 'asc' ? 'desc' : 'asc';
+    setSortOrder(nextOrder);
+    
+    const sorted = [...formData.anexos].sort((a, b) => {
+      const titleA = (a.title || '').toLowerCase();
+      const titleB = (b.title || '').toLowerCase();
+      return nextOrder === 'asc' 
+        ? titleA.localeCompare(titleB) 
+        : titleB.localeCompare(titleA);
+    });
+    
+    setFormData(prev => ({ ...prev, anexos: sorted }));
+  };
 
   // Estados para CRUD de Tipos e Competências (serão preenchidos pelo useEffect)
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
@@ -35,7 +51,8 @@ export default function EditLRFPage() {
     competencia: '',
     status: 'rascunho',
     url_arquivo: '',
-    url_original: ''
+    url_original: '',
+    anexos: [] as any[]
   });
 
   // Busca opções existentes no banco de dados (Smart Discovery)
@@ -99,6 +116,20 @@ export default function EditLRFPage() {
 
       const competenciaDb = item.competencia || '';
 
+      const legacyUrl = item.arquivo_url || item.url_arquivo || '';
+      
+      let mappedAnexos = Array.isArray(item.anexos) 
+        ? [...item.anexos].map((a: any) => ({
+            title: a.title || a.titulo || '',
+            storageUrl: a.storageUrl || a.url || ''
+          }))
+        : [];
+
+      // Migração visual: se houver arquivo legado e ele não estiver na lista, adiciona como "Documento Principal"
+      if (legacyUrl && !mappedAnexos.some(a => a.storageUrl === legacyUrl)) {
+        mappedAnexos.push({ title: 'Documento Principal', storageUrl: legacyUrl });
+      }
+
       setFormData({
         titulo: item.titulo || '',
         categoria_lrf: tipoMapeado,
@@ -106,9 +137,11 @@ export default function EditLRFPage() {
         data_publicacao: item.data_publicacao ? item.data_publicacao.substring(0, 10) : '',
         competencia: competenciaDb,
         status: (item.status || 'rascunho').toLowerCase(),
-        url_arquivo: item.arquivo_url || item.url_arquivo || '',
-        url_original: item.url_original || ''
+        url_arquivo: legacyUrl,
+        url_original: item.url_original || '',
+        anexos: mappedAnexos.sort((a, b) => (a.title || '').toLowerCase().localeCompare((b.title || '').toLowerCase()))
       });
+      setSortOrder('asc');
     }
   }, [item]);
 
@@ -133,6 +166,11 @@ export default function EditLRFPage() {
         status: data.status,
         arquivo_url: data.url_arquivo,
         url_original: data.url_original || data.url_arquivo || '', // Satisfaz restrição NOT NULL para cadastros manuais
+        // Converte de volta do estado da UI (title/storageUrl) para o padrão do banco (titulo/url)
+        anexos: data.anexos?.map((a: any) => ({
+          titulo: a.title || a.titulo,
+          url: a.storageUrl || a.url
+        })) || [],
         municipio_id: currentMunicipality?.id
       };
       if (id === 'new') return axios.post('/api/lrf', payload);
@@ -165,7 +203,7 @@ export default function EditLRFPage() {
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, idx?: number) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -196,7 +234,15 @@ export default function EditLRFPage() {
         throw new Error(data.error || 'Falha ao enviar o arquivo');
       }
 
-      setFormData(prev => ({ ...prev, url_arquivo: data.publicUrl }));
+      if (idx !== undefined) {
+        // Atualiza a URL do anexo específico
+        const novos = [...formData.anexos];
+        novos[idx].storageUrl = data.publicUrl;
+        setFormData(prev => ({ ...prev, anexos: novos }));
+      } else {
+        // Fallback: Atualiza a URL principal do documento
+        setFormData(prev => ({ ...prev, url_arquivo: data.publicUrl }));
+      }
     } catch (error: any) {
       console.error("Erro no upload:", error);
       alert("Erro ao enviar o arquivo: " + error.message);
@@ -336,47 +382,112 @@ export default function EditLRFPage() {
                 </div>
               </div>
 
-              {/* Documento (Anexo) moved inside main content */}
+              {/* Tabela de Arquivos Anexos (JSONB) */}
               <div className="mt-6 border-t border-slate-100 pt-6">
-                <label className="text-[13px] font-semibold text-slate-700 block mb-3">Documento (Anexo)</label>
-                <div className="w-full border border-slate-200 rounded-md p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm bg-slate-50/50">
-                  <div className="flex items-center gap-3 w-full md:w-auto">
-                    <div className="w-10 h-10 rounded-full bg-red-50 text-red-500 flex items-center justify-center shrink-0">
-                      <FileText size={20} />
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-[13px] font-medium text-slate-700 truncate">{formData.url_arquivo ? 'Arquivo Anexado' : 'Nenhum arquivo'}</span>
-                      {formData.url_arquivo ? (
-                        <a href={formData.url_arquivo} target="_blank" rel="noreferrer" className="text-[12px] text-city-hall-blue hover:underline mt-0.5">
-                          Visualizar PDF
-                        </a>
-                      ) : (
-                        <span className="text-[12px] text-slate-400 mt-0.5">Nenhum anexo encontrado</span>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="w-full md:w-auto flex-shrink-0">
-                    <input 
-                      type="file" 
-                      accept=".pdf,application/pdf" 
-                      className="hidden" 
-                      id="pdf-upload" 
-                      onChange={handleFileUpload} 
-                      disabled={isUploading}
-                    />
-                    <label 
-                      htmlFor="pdf-upload"
-                      className={`w-full md:w-auto px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-[13px] font-medium rounded-md transition-colors flex items-center justify-center gap-2 cursor-pointer ${isUploading ? 'opacity-70 pointer-events-none' : ''}`}
-                    >
-                      {isUploading ? (
-                        <><Loader2 size={14} className="animate-spin" /> Enviando...</>
-                      ) : (
-                        <><UploadCloud size={14} /> Alterar Arquivo</>
-                      )}
-                    </label>
-                  </div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="text-[13px] font-semibold text-slate-700 block m-0">Arquivos Anexados</label>
+                  <button
+                    onClick={() => {
+                      const novoAnexo = { title: 'Novo Arquivo', storageUrl: '' };
+                      setFormData({ ...formData, anexos: [...formData.anexos, novoAnexo] });
+                    }}
+                    className="flex items-center gap-1 text-[12px] font-medium text-city-hall-blue hover:text-city-hall-blue/80"
+                  >
+                    <Plus size={14} /> Adicionar Arquivo
+                  </button>
                 </div>
+                
+                {formData.anexos.length === 0 ? (
+                  <div className="text-center p-6 border border-dashed border-slate-200 rounded-lg text-slate-400 text-[13px]">
+                    Nenhum arquivo associado a este registro. Clique em Adicionar Arquivo.
+                  </div>
+                ) : (
+                  <div className="border border-slate-200 rounded-lg overflow-hidden">
+                    <table className="w-full text-left text-[13px]">
+                      <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-medium">
+                        <tr>
+                          <th 
+                            className="px-4 py-3 cursor-pointer hover:bg-slate-100 transition-colors group"
+                            onClick={handleSort}
+                          >
+                            <div className="flex items-center gap-2">
+                              Título / Descrição
+                              <ArrowUpDown size={14} className={`transition-colors ${sortOrder ? 'text-city-hall-blue' : 'text-slate-300 group-hover:text-slate-400'}`} />
+                            </div>
+                          </th>
+                          <th className="px-4 py-3 w-[150px]">Arquivo</th>
+                          <th className="px-4 py-3 text-right w-[120px]">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {formData.anexos.map((anexo, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/50 group transition-colors">
+                            <td className="px-4 py-3">
+                              <input 
+                                value={anexo.title} 
+                                onChange={(e) => {
+                                  const novos = [...formData.anexos];
+                                  novos[idx].title = e.target.value;
+                                  setFormData({ ...formData, anexos: novos });
+                                }}
+                                className="w-full bg-transparent border-b border-transparent focus:border-city-hall-blue outline-none py-1.5 font-medium text-slate-700"
+                                placeholder="Nome ou descrição do arquivo"
+                              />
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <input 
+                                  type="file" 
+                                  accept=".pdf,application/pdf" 
+                                  className="hidden" 
+                                  id={`pdf-upload-${idx}`} 
+                                  onChange={(e) => handleFileUpload(e, idx)} 
+                                  disabled={isUploading}
+                                />
+                                <label 
+                                  htmlFor={`pdf-upload-${idx}`}
+                                  className={`w-full px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 text-slate-600 text-[12px] font-medium rounded transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
+                                >
+                                  {isUploading ? (
+                                    <><Loader2 size={14} className="animate-spin" /> ...</>
+                                  ) : (
+                                    <><UploadCloud size={14} /> Alterar</>
+                                  )}
+                                </label>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                {anexo.storageUrl && (
+                                  <a 
+                                    href={anexo.storageUrl} 
+                                    target="_blank" 
+                                    rel="noreferrer" 
+                                    className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-colors border border-transparent hover:border-emerald-200"
+                                    title="Visualizar PDF"
+                                  >
+                                    <Globe size={16} />
+                                  </a>
+                                )}
+                                <button
+                                  onClick={() => {
+                                    const novos = [...formData.anexos];
+                                    novos.splice(idx, 1);
+                                    setFormData({ ...formData, anexos: novos });
+                                  }}
+                                  className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors border border-transparent hover:border-red-200"
+                                  title="Remover arquivo"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           </div>

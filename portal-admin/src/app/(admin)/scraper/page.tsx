@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { usePortalStore } from '@/store/usePortalStore';
+import { useMunicipalityStore } from '@/store/municipality';
 import { useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@supabase/supabase-js';
-import { Play, Square, ChevronDown, CheckCircle2, ArrowRight, Copy, Check, MapPin } from 'lucide-react';
+import { Play, Square, ChevronDown, CheckCircle2, ArrowRight, Copy, Check, MapPin, Trash2, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const supabase = createClient(
@@ -24,20 +24,30 @@ export default function ScraperPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const qc = useQueryClient();
-  const { municipioAtivo, setMunicipioAtivo } = usePortalStore();
+  const { currentMunicipality, setCurrentMunicipality } = useMunicipalityStore();
 
   const [logs, setLogs] = useState('Engine: Node.js/Playwright | v4.0.0\nAguardando comandos...');
   const [isRunning, setIsRunning] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
   const [module, setModule] = useState(searchParams.get('module') || 'noticias');
+  const moduleRef = useRef(module);
+
+  useEffect(() => {
+    moduleRef.current = module;
+  }, [module]);
   const [limit, setLimit] = useState(20);
   const [progress, setProgress] = useState(0);
   const [itemsCollected, setItemsCollected] = useState(0);
   const [copied, setCopied] = useState(false);
   const [municipios, setMunicipios] = useState<Municipio[]>([]);
   const [selectedMunicipioId, setSelectedMunicipioId] = useState<string>(
-    municipioAtivo?.id?.toString() || ''
+    currentMunicipality?.id?.toString() || ''
   );
+
+  // States para o painel de exclusão
+  const [deleteModule, setDeleteModule] = useState(searchParams.get('module') || 'noticias');
+  const [deleteLimit, setDeleteLimit] = useState<number | 'all'>(5);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const logRef = useRef<HTMLDivElement>(null);
   const lastLogsRef = useRef('');
@@ -53,15 +63,17 @@ export default function ScraperPage() {
       });
   }, []);
 
-  // Sync selectedMunicipioId when municipioAtivo changes externally (e.g., from sidebar)
+  // Sync selectedMunicipioId when currentMunicipality changes externally (e.g., from header)
   useEffect(() => {
-    if (municipioAtivo?.id) {
-      setSelectedMunicipioId(municipioAtivo.id.toString());
+    if (currentMunicipality?.id && currentMunicipality.id !== selectedMunicipioId) {
+      setSelectedMunicipioId(currentMunicipality.id.toString());
     }
-  }, [municipioAtivo]);
+  }, [currentMunicipality?.id]);
 
-  // Derived: currently selected municipio object
-  const selectedMunicipio = municipios.find(m => m.id.toString() === selectedMunicipioId) || municipioAtivo;
+  // Derived: currently selected municipio object for the UI
+  // Note: Local selected object might have more fields (nome, url_base) than currentMunicipality
+  const selectedMunicipio = municipios.find(m => m.id.toString() === selectedMunicipioId) || 
+    (currentMunicipality ? { id: currentMunicipality.id, nome: currentMunicipality.name, url_base: currentMunicipality.url, ativo: true } : undefined);
 
   // Auto-scroll logs
   useEffect(() => {
@@ -106,8 +118,8 @@ export default function ScraperPage() {
               if (data.logs.includes('Código: 0')) {
                 setIsFinished(true);
                 // Invalidate cache based on module
-                qc.invalidateQueries({ queryKey: [module] });
-                qc.invalidateQueries({ queryKey: [`${module}-counts`] });
+                qc.invalidateQueries({ queryKey: [moduleRef.current] });
+                qc.invalidateQueries({ queryKey: [`${moduleRef.current}-counts`] });
               }
             }
           }
@@ -135,8 +147,7 @@ export default function ScraperPage() {
 
   const handleMunicipioChange = (id: string) => {
     setSelectedMunicipioId(id);
-    const found = municipios.find(m => m.id.toString() === id);
-    if (found) setMunicipioAtivo(found);
+    setCurrentMunicipality(id);
   };
 
   const handleStart = async () => {
@@ -165,6 +176,44 @@ export default function ScraperPage() {
       await fetch('/api/scrape', { method: 'DELETE' });
       setIsRunning(false);
     } catch (e) {}
+  };
+
+  const handleDeleteOldest = async () => {
+    if (!selectedMunicipio) {
+      alert('Selecione um município no topo antes de excluir.');
+      return;
+    }
+    
+    const confirmMsg = deleteLimit === 'all' 
+      ? `🚨 ATENÇÃO: Tem certeza que deseja excluir TODOS os registros de ${deleteModule} para ${selectedMunicipio.nome}? Esta ação é irreversível.`
+      : `Tem certeza que deseja excluir os ${deleteLimit} registros MAIS ANTIGOS de ${deleteModule} para ${selectedMunicipio.nome}?`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      setIsDeleting(true);
+      const res = await fetch('/api/admin/delete-oldest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ modulo: deleteModule, municipio_id: selectedMunicipio.id, limit: deleteLimit })
+      });
+      const data = await res.json();
+      
+      if (res.ok) {
+        setLogs(prev => prev + `\n✅ Sucesso: ${data.deletedCount} registros excluídos de ${deleteModule}.`);
+        qc.invalidateQueries({ queryKey: [deleteModule] });
+        qc.invalidateQueries({ queryKey: [`${deleteModule}-counts`] });
+        alert(`Sucesso! ${data.deletedCount} registros foram excluídos.`);
+      } else {
+        alert('Erro ao excluir: ' + data.error);
+        setLogs(prev => prev + `\n❌ Erro ao excluir: ${data.error}`);
+      }
+    } catch (e) {
+      alert('Erro inesperado ao excluir.');
+      setLogs(prev => prev + `\n❌ Erro inesperado ao excluir registros.`);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleGoToModule = () => {
@@ -206,8 +255,11 @@ export default function ScraperPage() {
         </div>
 
         <div className="flex gap-6 items-start">
-          {/* Painel de Controle */}
-          <div className="w-[300px] bg-white rounded-2xl shadow-xl border border-slate-200 p-6 flex flex-col gap-5 shrink-0">
+          {/* Painel Lateral Esquerdo (Controles) */}
+          <div className="flex flex-col gap-6 shrink-0 w-[300px]">
+            
+            {/* ── CARD: Console de Raspagem ── */}
+            <div className="w-full bg-white rounded-2xl shadow-xl border border-slate-200 p-6 flex flex-col gap-5">
 
             {/* ── Município Alvo ── */}
             <div className="space-y-2">
@@ -248,6 +300,7 @@ export default function ScraperPage() {
                 >
                   <option value="noticias">Notícias</option>
                   <option value="lrf">Transparência LRF</option>
+                  <option value="pcg">PCG</option>
                   <option value="secretarias">Secretarias</option>
                 </select>
                 <ChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -317,6 +370,80 @@ export default function ScraperPage() {
                 </div>
               </div>
             )}
+            </div>
+
+            {/* ── CARD: Gerenciar Exclusão ── */}
+            <div className="w-full bg-white rounded-2xl shadow-xl border-l-4 border-l-red-500 border-y border-r border-slate-200 p-6 flex flex-col gap-5 relative overflow-hidden group/delete">
+              <div className="absolute top-0 right-0 w-20 h-20 bg-red-50 rounded-full blur-2xl opacity-50 pointer-events-none group-hover/delete:opacity-100 transition-opacity" />
+              
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-8 h-8 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
+                  <Trash2 size={16} className="text-red-500" />
+                </div>
+                <div>
+                  <h2 className="text-[12px] font-black text-slate-900 uppercase tracking-widest leading-none">
+                    Limpeza de Dados
+                  </h2>
+                  <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider font-bold">Ordem cronológica</p>
+                </div>
+              </div>
+
+              {/* ── Módulo para Excluir ── */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.15em]">Módulo Alvo</label>
+                <div className="relative">
+                  <select
+                    value={deleteModule}
+                    onChange={e => setDeleteModule(e.target.value)}
+                    disabled={isDeleting || isRunning}
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl pl-4 pr-10 py-3 text-sm outline-none appearance-none cursor-pointer disabled:opacity-50 focus:border-red-500 focus:ring-4 focus:ring-red-500/10 transition-all font-bold"
+                  >
+                    <option value="noticias">Notícias</option>
+                    <option value="lrf">Transparência LRF</option>
+                    <option value="pcg">PCG</option>
+                    <option value="secretarias">Secretarias</option>
+                  </select>
+                  <ChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* ── Quantidade ── */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.15em]">Mais Antigos</label>
+                <div className="relative">
+                  <select
+                    value={deleteLimit}
+                    onChange={e => setDeleteLimit(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                    disabled={isDeleting || isRunning}
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl pl-4 pr-10 py-3 text-sm outline-none appearance-none cursor-pointer disabled:opacity-50 focus:border-red-500 focus:ring-4 focus:ring-red-500/10 transition-all font-bold"
+                  >
+                    <option value={5}>Excluir 5 registros</option>
+                    <option value={10}>Excluir 10 registros</option>
+                    <option value={20}>Excluir 20 registros</option>
+                    <option value="all">Excluir TODOS</option>
+                  </select>
+                  <ChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* ── Botão de Excluir ── */}
+              <div className="pt-2">
+                <button
+                  onClick={handleDeleteOldest}
+                  disabled={isDeleting || isRunning}
+                  className="w-full h-12 bg-white border-2 border-red-200 hover:bg-red-50 hover:border-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-red-600 rounded-xl text-[12px] font-black uppercase tracking-widest flex items-center justify-center gap-2.5 transition-all group"
+                >
+                  {isDeleting ? (
+                    <span className="animate-pulse flex items-center gap-2"><Trash2 size={16} /> Processando...</span>
+                  ) : (
+                    <>
+                      <AlertTriangle size={15} className="group-hover:scale-110 transition-transform text-red-500" /> Confirmar Exclusão
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
           </div>
 
           {/* Console Terminal */}

@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     // 2. Buscar as URLs dos arquivos antes de deletar os registros
     const { data: items, error: fetchError } = await supabaseAdmin
       .from(table)
-      .select(`id, ${fileColumn}`)
+      .select(`id, ${fileColumn}, anexos`)
       .in('id', ids);
 
     if (fetchError) throw fetchError;
@@ -37,16 +37,28 @@ export async function POST(request: Request) {
     const bucket = 'arquivos_municipais';
     const filesToRemove: string[] = [];
 
-    items?.forEach(item => {
-      const url = item[fileColumn];
+    const extractPath = (url: any) => {
       if (url && typeof url === 'string' && url.includes(bucket)) {
-        // Extrai o path do arquivo da URL do Supabase
-        // Formato esperado: .../storage/v1/object/public/BUCKET/PATH
         const parts = url.split(`${bucket}/`);
         if (parts.length > 1) {
-          const filePath = decodeURIComponent(parts[1]);
-          filesToRemove.push(filePath);
+          return decodeURIComponent(parts[1]);
         }
+      }
+      return null;
+    };
+
+    items?.forEach(item => {
+      // Arquivo principal
+      const mainPath = extractPath(item[fileColumn]);
+      if (mainPath) filesToRemove.push(mainPath);
+
+      // Múltiplos anexos (JSONB)
+      if (modulo === 'lrf' && Array.isArray(item.anexos)) {
+        item.anexos.forEach((anexo: any) => {
+          const anexoUrl = anexo.url || anexo.storageUrl;
+          const path = extractPath(anexoUrl);
+          if (path) filesToRemove.push(path);
+        });
       }
     });
 

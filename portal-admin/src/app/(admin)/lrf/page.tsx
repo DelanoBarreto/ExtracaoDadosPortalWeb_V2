@@ -318,7 +318,7 @@ export default function LRFPage() {
               className="h-9 px-3 bg-white border border-slate-200 rounded-xl text-[13px] font-bold text-slate-600 outline-none focus:border-[#004c99] transition-all cursor-pointer shadow-sm"
             >
               <option value="Todos">Referência</option>
-              {['LDO', 'LOA', 'PPA', 'RREO', 'RGF', 'CMED'].map(tipo => (
+              {['LDO', 'LOA', 'PPA', 'RREO', 'RGF', 'CMED', 'PCG', 'PFA'].map(tipo => (
                 <option key={tipo} value={tipo}>{tipo}</option>
               ))}
             </select>

@@ -76,6 +76,7 @@ export async function POST(request: Request) {
     const SCRIPT_MAP: Record<string, string> = {
       'noticias': 'raspar-noticias-v2.js',
       'lrf': 'raspar-lrf.js',
+      'pcg': 'raspar-pcg.js',
       'secretarias': 'raspar-secretarias-v1.js',
     };
 
