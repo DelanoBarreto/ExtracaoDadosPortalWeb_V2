@@ -287,7 +287,7 @@ async function rasparLRF() {
             // Segurança: evitar loops infinitos (máximo 50 páginas)
             if (currentPage >= 50 && effectiveLimit !== Infinity) {
                 console.log('   ⚠️ Teto de 50 páginas atingido. Encerrando por segurança.');
-                hasMorePages = false;
+                break;
             }
         }
 

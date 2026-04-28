@@ -1,18 +1,22 @@
 {
     "mcpServers": {
         "context7": {
-            "command": "npx",
-            "args": [
-                "-y",
-                "@upstash/context7-mcp",
+        "command": "cmd",
+        "args": [
+            "/c",
+            "npx",
+            "-y",
+            "@upstash/context7-mcp",
                 "--api-key",
                 "YOUR_API_KEY"
             ]
         },
         "shadcn": {
-            "command": "npx",
-            "args": [
-                "shadcn@latest",
+        "command": "cmd",
+        "args": [
+            "/c",
+            "npx",
+            "shadcn@latest",
                 "mcp"
             ]
         }
