@@ -560,3 +560,62 @@ body {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px var(--color-primary-glow);
 }
+
+/* ════════════════════════════════════
+   TERMINAL SCROLLBAR — Console de Raspagem
+   ════════════════════════════════════ */
+.custom-terminal-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-terminal-scrollbar::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+.custom-terminal-scrollbar::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 10px;
+  border: 2px solid #050505;
+}
+.custom-terminal-scrollbar::-webkit-scrollbar-thumb:hover { background: #334155; }
+
+/* ════════════════════════════════════
+   UTILITY — No Scrollbar
+   ════════════════════════════════════ */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ════════════════════════════════════
+   TIPTAP EDITOR — ProseMirror fix
+   Remove default browser outline/border
+   ════════════════════════════════════ */
+.ProseMirror {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 1.25rem 1.5rem;
+  min-height: 350px;
+  color: var(--color-ink);
+  font-size: 0.9375rem;
+  line-height: 1.75;
+}
+.ProseMirror p { margin: 0 0 0.75rem 0; }
+.ProseMirror h2 { font-size: 1.25rem; font-weight: 700; margin: 1.25rem 0 0.5rem; color: var(--color-ink); }
+.ProseMirror h3 { font-size: 1.1rem; font-weight: 600; margin: 1rem 0 0.4rem; color: var(--color-ink); }
+.ProseMirror ul, .ProseMirror ol { padding-left: 1.5rem; margin: 0.5rem 0 0.75rem; }
+.ProseMirror li { margin-bottom: 0.25rem; }
+.ProseMirror a { color: var(--color-primary); text-decoration: underline; }
+.ProseMirror strong { font-weight: 700; }
+.ProseMirror em { font-style: italic; }
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--color-subtle);
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+
+/* ════════════════════════════════════
+   BLOCKNOTE EDITOR FIXES
+   ════════════════════════════════════ */
+.bn-editor {
+  outline: none !important;
+  min-height: 350px !important;
+}
+.bn-container[data-color-scheme="light"] {
+  --bn-colors-editor-background: transparent !important;
+}

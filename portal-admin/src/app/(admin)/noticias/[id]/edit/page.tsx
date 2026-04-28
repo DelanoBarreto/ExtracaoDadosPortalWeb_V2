@@ -72,7 +72,10 @@ export default function EditNoticiaPage() {
       });
 
       if (noticia.categoria && !availableCategories.includes(noticia.categoria)) {
-        setAvailableCategories(prev => [...prev, noticia.categoria]);
+        setAvailableCategories(prev => {
+          if (prev.includes(noticia.categoria)) return prev;
+          return [...prev, noticia.categoria];
+        });
       }
     }
   }, [noticia]);
@@ -279,7 +282,7 @@ export default function EditNoticiaPage() {
                 className="flex-1 bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors"
               >
                 <option value="">Selecione uma categoria...</option>
-                {availableCategories.map(cat => (
+                {Array.from(new Set(availableCategories)).map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>
@@ -421,7 +424,10 @@ export default function EditNoticiaPage() {
                   onChange={(e) => setNewCategory(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && newCategory.trim()) {
-                      setAvailableCategories(prev => [...prev, newCategory.trim()]);
+                      setAvailableCategories(prev => {
+                        const trimmed = newCategory.trim();
+                        return prev.includes(trimmed) ? prev : [...prev, trimmed];
+                      });
                       setFormData(prev => ({ ...prev, categoria: newCategory.trim() }));
                       setNewCategory('');
                       setIsCategoryModalOpen(false);
@@ -442,7 +448,10 @@ export default function EditNoticiaPage() {
               <button 
                 onClick={() => {
                   if (newCategory.trim()) {
-                    setAvailableCategories(prev => [...prev, newCategory.trim()]);
+                    setAvailableCategories(prev => {
+                      const trimmed = newCategory.trim();
+                      return prev.includes(trimmed) ? prev : [...prev, trimmed];
+                    });
                     setFormData(prev => ({ ...prev, categoria: newCategory.trim() }));
                     setNewCategory('');
                     setIsCategoryModalOpen(false);

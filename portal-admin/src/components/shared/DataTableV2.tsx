@@ -21,6 +21,7 @@ interface DataTableV2Props<T extends { id: string | number }> {
   sortKey?:        string;
   sortDir?:        'asc' | 'desc';
   onSort?:         (key: string) => void;
+  onRowClick?:     (row: T) => void;
 }
 
 export function DataTableV2<T extends { id: string | number }>({
@@ -33,6 +34,7 @@ export function DataTableV2<T extends { id: string | number }>({
   sortKey,
   sortDir,
   onSort,
+  onRowClick,
 }: DataTableV2Props<T>) {
   const allSelected = data.length > 0 && data.every(r => selectedIds.includes(r.id));
 
@@ -121,10 +123,17 @@ export function DataTableV2<T extends { id: string | number }>({
               return (
                 <tr
                   key={row.id}
-                  className={selected ? 'selected' : ''}
-                  style={{ transition: 'background 0.1s' }}
+                  className={`${selected ? 'selected' : ''} ${onRowClick ? 'hover:bg-slate-50 transition-colors group' : ''}`}
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  style={{ 
+                    cursor: onRowClick ? 'pointer' : 'default',
+                    transition: 'background 0.2s' 
+                  }}
                 >
-                  <td style={{ paddingLeft: '1rem', width: 44 }}>
+                  <td 
+                    style={{ paddingLeft: '1rem', width: 44 }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <input
                       type="checkbox"
                       checked={selected}

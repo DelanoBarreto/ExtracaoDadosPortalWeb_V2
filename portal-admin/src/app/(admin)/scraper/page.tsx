@@ -540,13 +540,6 @@ export default function ScraperPage() {
           </div>
         </div>
       </div>
-
-      <style jsx global>{`
-        .custom-terminal-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-terminal-scrollbar::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
-        .custom-terminal-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; border: 2px solid #050505; }
-        .custom-terminal-scrollbar::-webkit-scrollbar-thumb:hover { background: #334155; }
-      `}</style>
     </div>
   );
 }
