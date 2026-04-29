@@ -4,7 +4,8 @@ import { useRouter, useParams } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
 import {
   ArrowLeft, Save, X, Hash, UploadCloud,
-  FileText, Trash2, User, Mail, Phone, Watch, Image, Calendar, ShieldCheck
+  FileText, Trash2, User, Mail, Phone, Watch, Image, Calendar, ShieldCheck,
+  Building2, BookOpen
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
@@ -25,8 +26,10 @@ export default function EditSecretariaPage() {
     nome_responsavel:        '',
     email:                   '',
     telefone:                '',
+    cnpj:                    '',
     horario_funcionamento:   '',
-    descricao:               '',
+    biografia:               '',
+    funcoes:                 '',
     status:                  'rascunho',
     foto_url:                '',
     exercicio:               '',
@@ -51,8 +54,10 @@ export default function EditSecretariaPage() {
         nome_responsavel:      item.nome_responsavel       || item.responsavel || '',
         email:                 item.email                  || '',
         telefone:              item.telefone               || '',
-        horario_funcionamento: item.horario_funcionamento  || '',
-        descricao:             item.descricao              || item.competencias || '',
+        cnpj:                  item.cnpj                   || '',
+        horario_funcionamento: item.horario_atendimento    || item.horario_funcionamento || '',
+        biografia:             item.biografia              || '',
+        funcoes:               item.funcoes                || item.descricao || item.competencias || '',
         status:                item.status                 || 'rascunho',
         foto_url:              item.foto_url               || item.imagem_url || '',
         exercicio:             item.exercicio              || '',
@@ -89,13 +94,15 @@ export default function EditSecretariaPage() {
   // ── Save ──────────────────────────────────────────────────────────────
   const saveMutation = useMutation({
     mutationFn: async (data: any) => {
-      // Filtra apenas os campos que o banco aceita
       const payload = {
         nome_secretaria:       data.nome_secretaria,
         nome_responsavel:      data.nome_responsavel,
         email:                 data.email,
         telefone:              data.telefone,
+        cnpj:                  data.cnpj || null,
         horario_atendimento:   data.horario_funcionamento,
+        biografia:             data.biografia || null,
+        funcoes:               data.funcoes || null,
         status:                data.status,
         foto_url:              data.foto_url,
         exercicio:             data.exercicio ? parseInt(data.exercicio) : null,
@@ -259,6 +266,20 @@ export default function EditSecretariaPage() {
 
             <div className="space-y-1.5">
               <label className="text-[13px] font-semibold text-slate-700 flex items-center gap-2">
+                <Building2 size={14} className="text-city-hall-blue" /> CNPJ do Órgão
+              </label>
+              <input
+                id="field-cnpj"
+                value={formData.cnpj}
+                onChange={e => setFormData({ ...formData, cnpj: e.target.value })}
+                onKeyDown={handleKeyDown}
+                className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors"
+                placeholder="00.000.000/0000-00"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[13px] font-semibold text-slate-700 flex items-center gap-2">
                 <Watch size={14} className="text-city-hall-blue" /> Horário de Funcionamento
               </label>
               <input
@@ -288,6 +309,57 @@ export default function EditSecretariaPage() {
               />
             </div>
 
+          </div>
+
+          {/* Biografia do Secretário */}
+          <div className="space-y-1.5">
+            <label className="text-[13px] font-semibold text-slate-700 flex items-center gap-2">
+              <BookOpen size={14} className="text-city-hall-blue" /> Biografia do Secretário(a)
+            </label>
+            <textarea
+              id="field-biografia"
+              value={formData.biografia}
+              onChange={e => setFormData({ ...formData, biografia: e.target.value })}
+              rows={5}
+              className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors resize-y"
+              placeholder="Formação acadêmica, experiência profissional e trajetória do(a) secretário(a)..."
+            />
+          </div>
+
+          {/* Funções e Competências */}
+          <div className="space-y-1.5">
+            <label className="text-[13px] font-semibold text-slate-700 flex items-center gap-2">
+              <FileText size={14} className="text-city-hall-blue" /> Funções e Competências da Secretaria
+            </label>
+            <div className="bg-white rounded-md border border-border-color overflow-hidden min-h-[400px] focus-within:ring-2 focus-within:ring-city-hall-accent/50 focus-within:border-city-hall-accent transition-colors">
+              <RichTextEditor
+                content={formData.funcoes}
+                onChange={html => setFormData({ ...formData, funcoes: html })}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* ── Coluna Lateral ── */}
+        <div className="flex flex-col gap-6">
+          <div className="bg-white border border-border-color rounded-xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.05)] space-y-5">
+
+            {/* Status da Publicação */}
+            <div className="space-y-1.5">
+              <label className="text-[13px] font-semibold text-slate-700">Status da Publicação</label>
+              <select
+                value={formData.status}
+                onChange={e => setFormData({ ...formData, status: e.target.value })}
+                onKeyDown={handleKeyDown}
+                className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors"
+              >
+                <option value="rascunho">Rascunho</option>
+                <option value="publicado">Publicado</option>
+                <option value="arquivado">Arquivado</option>
+              </select>
+            </div>
+
+            {/* Data de Publicação */}
             <div className="space-y-1.5">
               <label className="text-[13px] font-semibold text-slate-700 flex items-center gap-2">
                 <Calendar size={14} className="text-city-hall-blue" /> Data de Publicação
@@ -300,40 +372,6 @@ export default function EditSecretariaPage() {
                 onKeyDown={handleKeyDown}
                 className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors"
               />
-            </div>
-          </div>
-
-          {/* Competências */}
-          <div className="space-y-1.5">
-            <label className="text-[13px] font-semibold text-slate-700 flex items-center gap-2">
-              <FileText size={14} className="text-city-hall-blue" /> Competências e Atribuições
-            </label>
-            <div className="bg-white rounded-md border border-border-color overflow-hidden min-h-[400px] focus-within:ring-2 focus-within:ring-city-hall-accent/50 focus-within:border-city-hall-accent transition-colors">
-              <RichTextEditor
-                content={formData.descricao}
-                onChange={html => setFormData({ ...formData, descricao: html })}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* ── Coluna Lateral ── */}
-        <div className="flex flex-col gap-6">
-          <div className="bg-white border border-border-color rounded-xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.05)] space-y-5">
-
-            {/* Status */}
-            <div className="space-y-1.5">
-              <label className="text-[13px] font-semibold text-slate-700">Visibilidade</label>
-              <select
-                value={formData.status}
-                onChange={e => setFormData({ ...formData, status: e.target.value })}
-                onKeyDown={handleKeyDown}
-                className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors"
-              >
-                <option value="rascunho">Rascunho</option>
-                <option value="publicado">Publicado</option>
-                <option value="arquivado">Arquivado</option>
-              </select>
             </div>
 
             {/* Foto Upload */}

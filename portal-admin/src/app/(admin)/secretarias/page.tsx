@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Plus, Search, User,
-  ShieldCheck, Pencil, Trash2, Globe, X,
-  ChevronLeft, ChevronRight, ChevronDown, ListChecks, HardDrive
+  Pencil, Trash2, Globe, EyeOff, Archive,
+  ChevronLeft, ChevronRight, RefreshCw, X
 } from 'lucide-react';
 import { useMunicipalityStore } from '@/store/municipality';
 import { supabase } from '@/lib/supabase';
@@ -28,13 +28,13 @@ interface Secretaria {
 // ── Colunas da Tabela (V4 Elite) ──────────────────────────────────────────
 const buildColumns = (
   router: ReturnType<typeof useRouter>,
-  onDelete: (id: string) => void,
+  onDelete:  (id: string) => void,
 ): Column<Secretaria>[] => [
   {
-    key:      'foto_url',
-    label:    'FOTO',
-    width:    '80px',
-    render:   (val) => (
+    key:    'foto_url',
+    label:  'FOTO',
+    width:  '80px',
+    render: (val) => (
       <div className="w-10 h-10 rounded-full overflow-hidden border border-slate-200 bg-slate-100 flex items-center justify-center shrink-0 shadow-sm mx-auto">
         {val ? (
           <img src={val} alt="Titular" className="w-full h-full object-cover" />
@@ -57,10 +57,17 @@ const buildColumns = (
   },
   {
     key:      'nome_secretaria',
-    label:    'SECRETÁRIA / ÓRGÃO',
+    label:    'SECRETARIA / ÓRGÃO',
     sortable: true,
-    render:   (val) => (
-      <p className="text-[0.85rem] text-slate-500 font-medium leading-snug">{val || 'Sem nome'}</p>
+    render:   (val, row) => (
+      <div className="max-w-[620px]">
+        <p
+          className="text-[0.85rem] text-slate-800 font-medium hover:text-[#004c99] cursor-pointer"
+          onClick={() => router.push(`/secretarias/${row.id}/edit`)}
+        >
+          {val || 'Sem nome'}
+        </p>
+      </div>
     ),
   },
   {
@@ -70,14 +77,14 @@ const buildColumns = (
     render: (val) => {
       const status = val?.toLowerCase() || 'rascunho';
       const isPublicado = ['publicado', 'published'].includes(status);
-      const isRascunho  = ['rascunho', 'draft'].includes(status) || !val;
+      const isArquivado = ['arquivado', 'archived'].includes(status);
       return (
         <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
           isPublicado ? 'bg-[#DCFCE7] text-[#166534]'
-          : isRascunho ? 'bg-[#FEF3C7] text-[#92400E]'
-          : 'bg-slate-100 text-slate-600'
+          : isArquivado ? 'bg-slate-100 text-slate-500'
+          : 'bg-[#FEF3C7] text-[#92400E]'
         }`}>
-          {isPublicado ? 'Publicado' : isRascunho ? 'Rascunho' : val}
+          {isPublicado ? 'Publicado' : isArquivado ? 'Arquivado' : 'Rascunho'}
         </span>
       );
     },
@@ -85,9 +92,9 @@ const buildColumns = (
   {
     key:    'actions',
     label:  'AÇÕES',
-    width:  '100px',
+    width:  '80px',
     render: (_, row) => (
-      <div className="flex items-center justify-center gap-1">
+      <div className="flex items-center justify-end gap-1">
         <button
           onClick={(e) => { e.stopPropagation(); router.push(`/secretarias/${row.id}/edit`); }}
           className="p-1.5 text-slate-500 hover:text-[#004c99] hover:bg-blue-50 rounded-md transition-colors border border-transparent hover:border-blue-200"
@@ -169,13 +176,30 @@ export default function SecretariasPage() {
   // ── Mutations ────────────────────────────────────────────────────────
   const deleteMutation = useMutation({
     mutationFn: async (ids: string[]) => {
-      await axios.post('/api/admin/delete-items', { ids, modulo: 'secretarias' });
+      await Promise.all(
+        ids.map(id => axios.delete(`/api/secretarias/${id}`))
+      );
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['secretarias'] });
       qc.invalidateQueries({ queryKey: ['secretarias-counts'] });
       setSelectedIds([]);
       setConfirmDelete(null);
+    },
+  });
+
+  // Altera status de múltiplos registros
+  const bulkStatusMutation = useMutation({
+    mutationFn: async ({ ids, status }: { ids: string[]; status: string }) => {
+      await Promise.all(
+        ids.map(id => axios.put(`/api/secretarias/${id}`, { status }))
+      );
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['secretarias'] });
+      qc.invalidateQueries({ queryKey: ['secretarias-counts'] });
+      setSelectedIds([]);
+      setDropdownBulkOpen(false);
     },
   });
 
@@ -188,31 +212,48 @@ export default function SecretariasPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Header */}
+      {/* ── Page Header ────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-[22px] font-black text-slate-900 leading-tight">Secretarias</h1>
+          <h1 className="text-[22px] font-black text-slate-900 leading-tight tracking-tight">
+            Secretarias
+          </h1>
           <p className="text-slate-500 text-[13px] font-medium">Gerencie os órgãos e responsáveis do município</p>
         </div>
-        <button 
-          onClick={() => router.push('/secretarias/new/edit')}
-          className="h-10 px-4 rounded-xl bg-[#004c99] text-white text-[13px] font-bold hover:bg-[#003366] transition-all flex items-center gap-2 shadow-lg shadow-blue-100"
-        >
-          <Plus size={16} /> Novo Órgão
-        </button>
+
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => {
+              qc.invalidateQueries({ queryKey: ['secretarias'] });
+              qc.invalidateQueries({ queryKey: ['secretarias-counts'] });
+            }}
+            disabled={isLoading}
+            className="h-9 px-3 rounded-xl border border-slate-200 bg-white text-slate-600 text-[12px] font-bold hover:bg-slate-50 transition-all flex items-center gap-2 disabled:opacity-50"
+          >
+            <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+            Atualizar
+          </button>
+          <button 
+            onClick={() => router.push('/secretarias/new/edit')}
+            className="h-9 px-4 rounded-xl bg-[#004c99] text-white text-[13px] font-bold hover:bg-[#003366] transition-all flex items-center gap-2 shadow-lg shadow-blue-100 cursor-pointer"
+          >
+            <Plus size={16} /> Novo Órgão
+          </button>
+        </div>
       </div>
 
-      {/* Tabs */}
+      {/* ── Status Tabs ────────────────────────────────────────────────── */}
       <div className="flex items-center gap-6 border-b border-slate-200 mb-2 overflow-x-auto no-scrollbar">
         {[
           { id: 'Todos', label: 'Todos', count: counts?.total },
           { id: 'Publicado', label: 'Publicado', count: counts?.publicado },
           { id: 'Rascunho', label: 'Rascunho', count: counts?.rascunho },
+          { id: 'Arquivado', label: 'Arquivado', count: counts?.arquivado },
         ].map(tab => (
           <button 
             key={tab.id}
             onClick={() => { setStatusFilter(tab.id); setPage(0); }}
-            className={`pb-1.5 flex items-center gap-2 text-[13px] font-bold transition-all border-b-2 ${
+            className={`pb-1.5 flex items-center gap-2 text-[13px] font-bold transition-all border-b-2 relative ${
               statusFilter === tab.id 
               ? 'text-slate-900 border-slate-900' 
               : 'text-slate-400 border-transparent hover:text-slate-600'
@@ -226,26 +267,34 @@ export default function SecretariasPage() {
         ))}
       </div>
 
-      {/* Search & Actions */}
+      {/* ── Search & Bulk Actions ──────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-4 mb-1">
         <div className="flex items-center gap-4 flex-1">
-          <div className="relative flex-1 max-w-[320px]">
-            <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+          <div className="relative group flex-1 max-w-[320px]">
+            <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-[#004c99]" />
             <input 
               type="text" 
               placeholder="Buscar secretarias..."
               value={searchQuery}
               onChange={e => { setSearchQuery(e.target.value); setPage(0); }}
-              className="w-full h-10 pl-11 pr-4 bg-white border border-slate-200 rounded-xl text-[13px] font-medium outline-none focus:border-[#004c99] focus:ring-4 focus:ring-blue-50 transition-all shadow-sm"
+              className="w-full h-9 pl-11 pr-4 bg-white border border-slate-200 rounded-xl text-[13px] font-medium outline-none focus:border-[#004c99] focus:ring-4 focus:ring-blue-50 transition-all placeholder:text-slate-400 shadow-sm"
             />
           </div>
 
           <BulkActionDropdown 
             selectedCount={selectedIds.length}
             actions={[
+              { label: 'Publicar Selecionados', icon: Globe, onClick: () => bulkStatusMutation.mutate({ ids: selectedIds, status: 'publicado' }), color: 'text-emerald-500' },
+              { label: 'Mover para Rascunho', icon: Pencil, onClick: () => bulkStatusMutation.mutate({ ids: selectedIds, status: 'rascunho' }), color: 'text-amber-500' },
+              { label: 'Arquivar Selecionados', icon: Archive, onClick: () => bulkStatusMutation.mutate({ ids: selectedIds, status: 'arquivado' }), color: 'text-slate-400' },
+              { label: 'SEPARATOR', icon: X, onClick: () => {} },
               { label: 'Excluir Selecionados', icon: Trash2, onClick: () => setConfirmDelete('bulk'), variant: 'danger' }
             ]}
           />
+        </div>
+
+        <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-4 py-1.5 border-l border-slate-200">
+          {totalItems} ITENS
         </div>
       </div>
 
@@ -306,15 +355,21 @@ export default function SecretariasPage() {
                 Esta ação excluirá permanentemente os registros selecionados. Não pode ser desfeita.
               </p>
               <div className="flex gap-4">
-                <button onClick={() => setConfirmDelete(null)} className="flex-1 py-4 text-sm font-bold text-slate-400">Cancelar</button>
+                <button
+                  onClick={() => setConfirmDelete(null)}
+                  className="flex-1 py-4 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  Cancelar
+                </button>
                 <button
                   onClick={() => {
-                    const ids = confirmDelete === 'bulk' ? selectedIds : [confirmDelete];
+                    const ids = confirmDelete === 'bulk' ? selectedIds : [confirmDelete as string];
                     deleteMutation.mutate(ids);
                   }}
-                  className="flex-1 py-4 bg-red-500 text-white rounded-2xl text-sm font-bold"
+                  disabled={deleteMutation.isPending}
+                  className="flex-1 py-4 bg-red-500 text-white rounded-2xl text-sm font-bold hover:bg-red-600 disabled:opacity-60 transition-colors"
                 >
-                  Sim, Excluir
+                  {deleteMutation.isPending ? 'Excluindo...' : 'Sim, Excluir'}
                 </button>
               </div>
             </motion.div>

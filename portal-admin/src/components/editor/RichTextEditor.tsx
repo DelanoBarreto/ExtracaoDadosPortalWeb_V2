@@ -65,7 +65,10 @@ export const RichTextEditor = ({
         HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank', class: 'text-blue-600 underline' },
       }),
       Image.configure({ inline: false }),
-      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      TextAlign.configure({ 
+        types: ['heading', 'paragraph'],
+        defaultAlignment: '' // Força a gravar style="text-align: left" em vez de remover a classe
+      }),
       Placeholder.configure({ placeholder }),
     ],
     content,
