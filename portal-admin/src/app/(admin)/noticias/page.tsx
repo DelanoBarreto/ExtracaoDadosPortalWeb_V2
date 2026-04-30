@@ -6,7 +6,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Building2, Plus, Pencil, Trash2, Check, Globe, ShieldCheck,
   Save, Search, ChevronLeft, ChevronRight, X, AlertCircle, Loader2,
-  HardDrive, ListChecks, ChevronDown, RefreshCw, HardDrive as HardDriveIcon
+  HardDrive, ListChecks, ChevronDown, RefreshCw, HardDrive as HardDriveIcon,
+  LayoutGrid, Table as TableIcon, Eye
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMunicipalityStore } from '@/store/municipality';
@@ -131,6 +132,7 @@ export default function NoticiasPage() {
   const pageSize                          = 20;
   const [dropdownBulkOpen, setDropdownBulkOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | 'bulk' | null>(null);
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
 
   // ── Categorias Disponíveis (limitado para não buscar tudo) ───────────
   const { data: categories } = useQuery({
@@ -254,29 +256,54 @@ export default function NoticiasPage() {
         </div>
       </div>
 
-      {/* ── Status Tabs ────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-6 border-b border-slate-200 mb-2 overflow-x-auto no-scrollbar">
-        {[
-          { id: 'Todos', label: 'Todos', count: counts?.total },
-          { id: 'Publicado', label: 'Publicado', count: counts?.publicado },
-          { id: 'Rascunho', label: 'Rascunho', count: counts?.rascunho },
-          { id: 'Arquivado', label: 'Arquivado', count: counts?.arquivado },
-        ].map(tab => (
-          <button 
-            key={tab.id}
-            onClick={() => { setStatusFilter(tab.id); setPage(0); }}
-            className={`pb-1.5 flex items-center gap-2 text-[13px] font-bold transition-all border-b-2 relative ${
-              statusFilter === tab.id 
-              ? 'text-slate-900 border-slate-900' 
-              : 'text-slate-400 border-transparent hover:text-slate-600'
+      {/* ── View Toggle & Status Tabs ──────────────────────────────────── */}
+      <div className="flex items-center justify-between border-b border-slate-200 mb-2">
+        <div className="flex items-center gap-6 overflow-x-auto no-scrollbar">
+          {[
+            { id: 'Todos', label: 'Todos', count: counts?.total },
+            { id: 'Publicado', label: 'Publicado', count: counts?.publicado },
+            { id: 'Rascunho', label: 'Rascunho', count: counts?.rascunho },
+            { id: 'Arquivado', label: 'Arquivado', count: counts?.arquivado },
+          ].map(tab => (
+            <button 
+              key={tab.id}
+              onClick={() => { setStatusFilter(tab.id); setPage(0); }}
+              className={`pb-2.5 flex items-center gap-2 text-[13px] font-bold transition-all border-b-2 relative -mb-[1px] ${
+                statusFilter === tab.id 
+                ? 'text-[#004c99] border-[#004c99]' 
+                : 'text-slate-400 border-transparent hover:text-slate-600'
+              }`}
+            >
+              {tab.label}
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full bg-slate-50 ${statusFilter === tab.id ? 'text-[#004c99] bg-blue-50' : 'text-slate-400'}`}>
+                {tab.count || 0}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center bg-slate-100 p-1 rounded-xl mb-2">
+          <button
+            onClick={() => setViewMode('table')}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12px] font-bold transition-all ${
+              viewMode === 'table' 
+                ? 'bg-white text-[#004c99] shadow-sm' 
+                : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            {tab.label}
-            <span className={`text-[10px] ${statusFilter === tab.id ? 'text-slate-500' : 'text-slate-300'}`}>
-              {tab.count || 0}
-            </span>
+            <TableIcon size={14} /> Tabela
           </button>
-        ))}
+          <button
+            onClick={() => setViewMode('cards')}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12px] font-bold transition-all ${
+              viewMode === 'cards' 
+                ? 'bg-white text-[#004c99] shadow-sm' 
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <LayoutGrid size={14} /> Cards
+          </button>
+        </div>
       </div>
 
       {/* ── Search & Bulk Actions ──────────────────────────────────────── */}
@@ -323,19 +350,136 @@ export default function NoticiasPage() {
         </div>
       </div>
 
-      {/* ── Data Table Container ────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-10">
-        <DataTableV2
-          data={noticias}
-          columns={columns}
-          selectedIds={selectedIds}
-          onSelectChange={ids => setSelectedIds(ids as string[])}
-          loading={isLoading}
-          emptyMessage="Nenhuma notícia encontrada para este município."
-          sortKey={sortKey}
-          sortDir={sortDir}
-          onSort={handleSort}
-        />
+      {/* ── Data View Container ────────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-10 min-h-[400px]">
+        <AnimatePresence mode="wait">
+          {viewMode === 'table' ? (
+            <motion.div
+              key="table"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              <DataTableV2
+                data={noticias}
+                columns={columns}
+                selectedIds={selectedIds}
+                onSelectChange={ids => setSelectedIds(ids as string[])}
+                loading={isLoading}
+                emptyMessage="Nenhuma notícia encontrada para este município."
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={handleSort}
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="cards"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-8"
+            >
+              {isLoading ? (
+                Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="bg-slate-50 rounded-2xl p-4 animate-pulse">
+                    <div className="aspect-video bg-slate-200 rounded-xl mb-4" />
+                    <div className="h-4 bg-slate-200 rounded w-3/4 mb-2" />
+                    <div className="h-4 bg-slate-200 rounded w-1/2" />
+                  </div>
+                ))
+              ) : noticias.length === 0 ? (
+                <div className="col-span-full py-20 text-center text-slate-400 font-medium">
+                  Nenhuma notícia encontrada.
+                </div>
+              ) : (
+                noticias.map((item) => {
+                  const status = item.status?.toLowerCase() || 'publicado';
+                  const isPublicado = ['publicado', 'published'].includes(status) || !item.status;
+                  const isRascunho  = ['rascunho', 'draft'].includes(status);
+                  
+                  return (
+                    <motion.div
+                      key={item.id}
+                      whileHover={{ y: -4 }}
+                      className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm group relative flex flex-col hover:border-[#004c99] transition-all"
+                    >
+                      <div className="aspect-video relative rounded-xl overflow-hidden bg-slate-100 mb-4 border border-slate-100">
+                         {item.imagem_url ? (
+                           <img src={item.imagem_url} alt={item.titulo} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                         ) : (
+                           <div className="w-full h-full flex items-center justify-center text-slate-300">
+                             <Globe size={32} />
+                           </div>
+                         )}
+                         <div className="absolute top-2 right-2 flex gap-1">
+                            <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider shadow-sm ${
+                              isPublicado ? 'bg-emerald-500 text-white'
+                              : isRascunho ? 'bg-amber-500 text-white'
+                              : 'bg-slate-500 text-white'
+                            }`}>
+                              {isPublicado ? 'Publicado' : isRascunho ? 'Rascunho' : item.status}
+                            </span>
+                         </div>
+                      </div>
+
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="px-2 py-0.5 rounded-md bg-slate-50 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
+                            {item.categoria || 'Geral'}
+                          </span>
+                        </div>
+                        <h3 
+                          className="text-[14px] font-bold text-slate-800 line-clamp-2 mb-3 cursor-pointer group-hover:text-[#004c99] transition-colors leading-snug"
+                          onClick={() => router.push(`/noticias/${item.id}/edit`)}
+                        >
+                          {item.titulo}
+                        </h3>
+                      </div>
+
+                      <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-50">
+                        <span className="text-[11px] font-medium text-slate-400">
+                          {item.data_publicacao ? new Date(item.data_publicacao).toLocaleDateString('pt-BR') : '—'}
+                        </span>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => router.push(`/noticias/${item.id}/edit`)}
+                            className="p-1.5 text-slate-400 hover:text-[#004c99] hover:bg-blue-50 rounded-lg transition-all"
+                            title="Editar"
+                          >
+                            <Pencil size={15} />
+                          </button>
+                          <button
+                            onClick={() => setConfirmDelete(item.id)}
+                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                            title="Excluir"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Selection Checkbox */}
+                      <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(item.id)}
+                          onChange={() => {
+                            if (selectedIds.includes(item.id)) setSelectedIds(selectedIds.filter(id => id !== item.id));
+                            else setSelectedIds([...selectedIds, item.id]);
+                          }}
+                          className="w-4 h-4 rounded border-slate-300 text-[#004c99] focus:ring-[#004c99] cursor-pointer"
+                        />
+                      </div>
+                    </motion.div>
+                  );
+                })
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* ── Pagination ───────────────────────────────────────────────── */}
         {!isLoading && totalPages > 1 && (
