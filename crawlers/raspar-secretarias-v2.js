@@ -10,7 +10,7 @@
 const cheerio = require('cheerio');
 const { createClient } = require('@supabase/supabase-js');
 const parseArgs = require('util').parseArgs;
-const scraperService = require('../legacy_backup/src/services/scraper-service');
+const scraperService = require('../src/services/scraper-service');
 
 require('dotenv').config({ path: __dirname + '/../.env' });
 
@@ -120,7 +120,18 @@ async function scrapeDetail(urlBase, detailUrl) {
         }
     });
 
-    // Fallback para biografia: parágrafo longo próximo ao nome do responsável
+    // Fallback 1: parágrafo com texto justificado (padrão comum para biografias)
+    if (!biografia) {
+        $('p[style*="text-align:justify"], p[style*="text-align: justify"]').each((_, el) => {
+            const txt = $(el).text().trim();
+            if (txt.length > 30) {
+                biografia = txt;
+                return false;
+            }
+        });
+    }
+
+    // Fallback 2: parágrafo longo próximo ao nome do responsável
     if (!biografia) {
         $('p').each((_, el) => {
             const txt = $(el).text().trim();
@@ -131,11 +142,24 @@ async function scrapeDetail(urlBase, detailUrl) {
         });
     }
 
-    // CNPJ (Extração robusta)
+    // Formata a biografia para HTML (compatível com o editor TipTap)
+    if (biografia) {
+        biografia = biografia.split(/\n+/).map(p => {
+            const clean = p.trim();
+            return clean ? `<p>${clean}</p>` : '';
+        }).join('');
+    }
+
+    // CNPJ (Extração robusta com Regex)
     let cnpj = extractField(bodyText, 'CNPJ');
     if (!cnpj) {
-        const cnpjNode = $('strong:contains("CNPJ")').parent();
-        if (cnpjNode.length) cnpj = cnpjNode.text().replace(/CNPJ:/i, '').trim();
+        const cnpjText = $('p:contains("CNPJ"), strong:contains("CNPJ")').parent().text();
+        const cnpjMatch = cnpjText.match(/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/);
+        if (cnpjMatch) {
+            cnpj = cnpjMatch[0]; // Pega exatamente o formato do CNPJ ignorando os espaços e tags <i>
+        } else if (cnpjText) {
+            cnpj = cnpjText.replace(/.*?CNPJ:/i, '').trim();
+        }
     }
 
     // Telefone
@@ -158,16 +182,61 @@ async function scrapeDetail(urlBase, detailUrl) {
     // Endereço
     const endereco = extractField(bodyText, 'Endereço');
 
-    // Funções / Atribuições (HTML)
+    // Funções / Atribuições - preserva estrutura completa do site (títulos + itens)
     let funcoes = null;
-    const funcoesNode = $('div.titulo2:contains("Atribuições da Secretaria")').nextUntil('div.titulo2, div.tab-pane, h3, h4');
-    if (funcoesNode.length) {
-        let funcoesHtml = '';
-        funcoesNode.each((i, el) => {
-            let html = $(el).html();
-            if (html) funcoesHtml += html.trim() + '<br/>';
+
+    // Encontra o primeiro div.titulo2 relevante (Visão, Atribuições, Funções, Competências)
+    const KEYWORDS_FUNCOES = ['visão', 'atribuições', 'competência', 'funções', 'missão'];
+    let secaoContainer = null;
+
+    $('div.titulo2').each((_, el) => {
+        const text = $(el).text().trim().toLowerCase();
+        if (KEYWORDS_FUNCOES.some(kw => text.includes(kw))) {
+            // Sobe até o container pai que agrupa toda a seção (div.row ou div.tab-pane)
+            secaoContainer = $(el).closest('div.row, div.tab-pane, div.tab-content, div[class*="col"]');
+            if (!secaoContainer.length) secaoContainer = $(el).parent();
+            return false;
+        }
+    });
+
+    if (secaoContainer && secaoContainer.length) {
+        let html = '';
+
+        secaoContainer.children().each((_, el) => {
+            const $el = $(el);
+            const tag = el.name.toLowerCase();
+            const classes = ($el.attr('class') || '').toLowerCase();
+            const texto = $el.text().trim();
+
+            // Ignora espaçamentos vazios (&nbsp;)
+            if (!texto || texto === '\u00a0' || texto.replace(/\s/g, '').length === 0) return;
+
+            // Títulos de seção (div.titulo2) → <p><strong>TÍTULO</strong></p>
+            if (classes.includes('titulo2')) {
+                html += `<p><strong>${texto.toUpperCase()}</strong></p>`;
+                return;
+            }
+
+            // Itens de conteúdo (div.col-md-*) → <p>✔ texto</p>
+            if (classes.includes('col-')) {
+                const textoLimpo = $el.clone()
+                    .find('i').remove().end()
+                    .text().trim();
+                if (textoLimpo && textoLimpo.length > 3) {
+                    html += `<p>✔ ${textoLimpo}</p>`;
+                }
+                return;
+            }
+
+            // Parágrafos genéricos
+            if (tag === 'p' && texto.length > 5) {
+                html += `<p>${texto}</p>`;
+            }
         });
-        funcoes = funcoesHtml.replace(/<br\/>$/, '').trim();
+
+        if (html) {
+            funcoes = html;
+        }
     }
 
     return {

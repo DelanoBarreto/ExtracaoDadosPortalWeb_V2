@@ -3,7 +3,7 @@ const { createClient } = require('@supabase/supabase-js');
 const parseArgs = require('util').parseArgs;
 const axios = require('axios');
 const fs = require('fs');
-const scraperService = require('../legacy_backup/src/services/scraper-service');
+const scraperService = require('../src/services/scraper-service');
 
 // Carrega variáveis do .env da raiz
 require('dotenv').config({ path: __dirname + '/../.env' });

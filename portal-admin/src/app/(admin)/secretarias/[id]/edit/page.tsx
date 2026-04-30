@@ -316,14 +316,14 @@ export default function EditSecretariaPage() {
             <label className="text-[13px] font-semibold text-slate-700 flex items-center gap-2">
               <BookOpen size={14} className="text-city-hall-blue" /> Biografia do Secretário(a)
             </label>
-            <textarea
-              id="field-biografia"
-              value={formData.biografia}
-              onChange={e => setFormData({ ...formData, biografia: e.target.value })}
-              rows={5}
-              className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors resize-y"
-              placeholder="Formação acadêmica, experiência profissional e trajetória do(a) secretário(a)..."
-            />
+            <div className="bg-white rounded-md border border-border-color overflow-hidden min-h-[200px] focus-within:ring-2 focus-within:ring-city-hall-accent/50 focus-within:border-city-hall-accent transition-colors">
+              <RichTextEditor
+                content={formData.biografia}
+                onChange={html => setFormData({ ...formData, biografia: html })}
+                placeholder="Formação acadêmica, experiência profissional e trajetória do(a) secretário(a)..."
+                minHeight="200px"
+              />
+            </div>
           </div>
 
           {/* Funções e Competências */}

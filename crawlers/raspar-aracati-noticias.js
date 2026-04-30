@@ -1,7 +1,7 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
-const { supabase } = require('../legacy_backup/src/lib/supabase-bot');
-const scraperService = require('../legacy_backup/src/services/scraper-service');
+const { supabase } = require('../src/lib/supabase-bot');
+const scraperService = require('../src/services/scraper-service');
 
 async function rasparNoticiasAracati() {
   console.log('🕵️ Iniciando raspagem de notícias: Aracati...');

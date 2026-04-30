@@ -121,6 +121,14 @@ When user's prompt is NOT in English:
 2. Identify dependent files
 3. Update ALL affected files together
 
+### 🧪 Scratch Files & Debug Scripts (MANDATORY)
+
+**Never leave loose testing or scratch files in the root directory.**
+When you need to create rapid prototypes, testing scripts, or database debug utilities (e.g., `.js`, `.py`, `.html`):
+1. **Create them inside `scripts/` or `scratch/`** (or `.agent/scratch/`).
+2. Do NOT create them in the root directory.
+3. If you find loose scratch files in the root during your analysis, clean them up or move them to the appropriate folder.
+
 ### 🗺️ System Map Read
 
 > 🔴 **MANDATORY:** Read `ARCHITECTURE.md` at session start to understand Agents, Skills, and Scripts.
