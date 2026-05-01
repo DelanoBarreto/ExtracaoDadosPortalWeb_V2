@@ -146,7 +146,7 @@ async function scrapeDetail(urlBase, detailUrl) {
     if (biografia) {
         biografia = biografia.split(/\n+/).map(p => {
             const clean = p.trim();
-            return clean ? `<p>${clean}</p>` : '';
+            return clean ? `<p style="text-align: justify">${clean}</p>` : '';
         }).join('');
     }
 
@@ -213,7 +213,7 @@ async function scrapeDetail(urlBase, detailUrl) {
 
             // Títulos de seção (div.titulo2) → <p><strong>TÍTULO</strong></p>
             if (classes.includes('titulo2')) {
-                html += `<p><strong>${texto.toUpperCase()}</strong></p>`;
+                html += `<p style="text-align: justify"><strong>${texto.toUpperCase()}</strong></p>`;
                 return;
             }
 
@@ -223,14 +223,14 @@ async function scrapeDetail(urlBase, detailUrl) {
                     .find('i').remove().end()
                     .text().trim();
                 if (textoLimpo && textoLimpo.length > 3) {
-                    html += `<p>✔ ${textoLimpo}</p>`;
+                    html += `<p style="text-align: justify">✔ ${textoLimpo}</p>`;
                 }
                 return;
             }
 
             // Parágrafos genéricos
             if (tag === 'p' && texto.length > 5) {
-                html += `<p>${texto}</p>`;
+                html += `<p style="text-align: justify">${texto}</p>`;
             }
         });
 
