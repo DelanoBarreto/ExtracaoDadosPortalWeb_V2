@@ -120,7 +120,7 @@ export default function EditSecretariaPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['secretarias'] });
       queryClient.invalidateQueries({ queryKey: ['secretarias-counts'] });
-      alert('Alterações salvas com sucesso!');
+      queryClient.removeQueries({ queryKey: ['secretaria', id] }); // força fetch novo ao reabrir
       router.push('/secretarias');
     },
     onError: (err: any) => {
@@ -319,22 +319,22 @@ export default function EditSecretariaPage() {
             <div className="bg-white rounded-md border border-border-color overflow-hidden min-h-[200px] focus-within:ring-2 focus-within:ring-city-hall-accent/50 focus-within:border-city-hall-accent transition-colors">
               <RichTextEditor
                 content={formData.biografia}
-                onChange={html => setFormData({ ...formData, biografia: html })}
+                onChange={html => setFormData(prev => ({ ...prev, biografia: html }))}
                 placeholder="Formação acadêmica, experiência profissional e trajetória do(a) secretário(a)..."
                 minHeight="200px"
               />
             </div>
           </div>
 
-          {/* Funções e Competências */}
+          {/* Atribuições da Secretaria */}
           <div className="space-y-1.5">
             <label className="text-[13px] font-semibold text-slate-700 flex items-center gap-2">
-              <FileText size={14} className="text-city-hall-blue" /> Funções e Competências da Secretaria
+              <FileText size={14} className="text-city-hall-blue" /> Atribuições da Secretaria
             </label>
             <div className="bg-white rounded-md border border-border-color overflow-hidden min-h-[400px] focus-within:ring-2 focus-within:ring-city-hall-accent/50 focus-within:border-city-hall-accent transition-colors">
               <RichTextEditor
                 content={formData.funcoes}
-                onChange={html => setFormData({ ...formData, funcoes: html })}
+                onChange={html => setFormData(prev => ({ ...prev, funcoes: html }))}
               />
             </div>
           </div>

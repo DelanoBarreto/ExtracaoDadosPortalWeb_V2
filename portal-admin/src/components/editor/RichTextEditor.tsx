@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
@@ -55,6 +55,13 @@ export const RichTextEditor = ({
   minHeight = '350px',
 }: RichTextEditorProps) => {
 
+  // Ref para o callback onChange — evita closure desatualizado dentro do useEditor
+  const onChangeRef = useRef(onChange);
+  useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
+
+  // Flag para distinguir mudanças vindas do editor vs props externas
+  const isEditorUpdate = useRef(false);
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -67,24 +74,38 @@ export const RichTextEditor = ({
       Image.configure({ inline: false }),
       TextAlign.configure({ 
         types: ['heading', 'paragraph'],
-        defaultAlignment: '' // Força a gravar style="text-align: left" em vez de remover a classe
+        defaultAlignment: '',
       }),
       Placeholder.configure({ placeholder }),
     ],
     content,
     immediatelyRender: false,
-    onUpdate: ({ editor }) => onChange(editor.getHTML()),
+    onUpdate: ({ editor }) => {
+      // Marca que a mudança veio do editor — não deve ser revertida pelo useEffect
+      isEditorUpdate.current = true;
+      onChangeRef.current(editor.getHTML());
+    },
     editorProps: {
       attributes: { class: 'focus:outline-none' },
     },
   });
 
+  // Sincroniza conteúdo externo (ex: load inicial) sem sobrescrever edições do usuário
   useEffect(() => {
-    if (editor && content !== editor.getHTML()) {
+    if (!editor) return;
+
+    // Se a mudança veio do próprio editor, ignora — evita loop circular
+    if (isEditorUpdate.current) {
+      isEditorUpdate.current = false;
+      return;
+    }
+
+    // Só atualiza se o conteúdo externo for realmente diferente (load inicial / reset)
+    const currentHTML = editor.getHTML();
+    if (content !== currentHTML) {
       editor.commands.setContent(content || '', false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [content]);
+  }, [content, editor]);
 
   if (!editor) return null;
 
