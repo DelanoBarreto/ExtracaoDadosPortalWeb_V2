@@ -47,3 +47,11 @@ O Tailwind CSS é configurado para utilizar variáveis CSS que são injetadas di
 - **Sombras:** `shadow-sm` e `shadow-md` suaves.
 - **Responsividade:** Estratégia Mobile-First com tabelas adaptativas.
 - **Tipografia:** Inter (interface) e Source Sans 3 (conteúdo textual).
+6: 
+## 🧹 Gestão de Arquivos e Limpeza de Storage
+7: 
+8: Para manter a integridade do sistema e evitar custos desnecessários com armazenamento:
+9: - **Deleção em Cascata:** Sempre que um registro for removido do banco de dados (Notícias, Gestores, Secretarias, LRF), o sistema **deve obrigatoriamente** remover os arquivos associados no Supabase Storage.
+10: - **Single Delete:** As rotas `DELETE /api/[modulo]/[id]` buscam a URL do arquivo antes de apagar o registro.
+11: - **Bulk Delete:** A rota `/api/admin/delete-items` processa múltiplos IDs e limpa todos os arquivos (incluindo JSONB `anexos`) antes da exclusão em lote.
+

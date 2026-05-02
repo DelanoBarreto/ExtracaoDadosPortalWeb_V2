@@ -113,6 +113,13 @@ When user's prompt is NOT in English:
 - **Performance**: Measure first. Adhere to 2025 standards (Core Web Vitals).
 - **Infra/Safety**: 5-Phase Deployment. Verify secrets security.
 
+### 🛡️ Data Integrity & Storage Cleanup
+
+**MANDATORY RULE:** Every time you implement or modify a deletion flow (single or bulk), you MUST ensure that all associated files in Supabase Storage are also deleted.
+- Identify image/file columns (e.g., `foto_url`, `imagem_url`, `arquivo_url`).
+- Check for JSONB columns containing arrays of files (e.g., `anexos`).
+- Fetch URLs before record deletion, extract storage paths, and call `supabaseAdmin.storage.from(...).remove(paths)`.
+
 ### 📁 File Dependency Awareness
 
 **Before modifying ANY file:**
@@ -283,5 +290,10 @@ When you need to create rapid prototypes, testing scripts, or database debug uti
 - **Scanners**: `security_scan.py`, `dependency_analyzer.py`
 - **Audits**: `ux_audit.py`, `mobile_audit.py`, `lighthouse_audit.py`, `seo_checker.py`
 - **Test**: `playwright_runner.py`, `test_runner.py`
+
+### Key Documentation
+- **UI Standard**: `docs/PADRAO_V4_ELITE.md` (MANDATORY for new screens)
+- **Architecture**: `docs/ARQUITETURA.md`
+- **Project Overview**: `README.md`
 
 ---

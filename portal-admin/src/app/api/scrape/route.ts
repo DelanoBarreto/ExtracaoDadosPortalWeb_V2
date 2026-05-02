@@ -78,6 +78,7 @@ export async function POST(request: Request) {
       'lrf': 'raspar-lrf.js',
       'pcg': 'raspar-pcg.js',
       'secretarias': 'raspar-secretarias-v2.js',
+      'gestores': 'raspar-gestores.js',
     };
 
     const targetScript = SCRIPT_MAP[modulo];

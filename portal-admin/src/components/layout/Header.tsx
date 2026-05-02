@@ -3,19 +3,29 @@
 import React from 'react';
 import { useMunicipalityStore } from '@/store/municipality';
 import { MapPin, RefreshCw, ChevronDown } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 
 export function Header() {
   const { currentMunicipality, municipalities, setCurrentMunicipality } = useMunicipalityStore();
+  const pathname = usePathname();
+
+  // Desabilita o seletor em telas de edição ou criação
+  const isEditPage = pathname?.includes('/edit') || pathname?.endsWith('/new');
 
   return (
     <header className="h-14 border-b border-slate-100 bg-white z-30">
       <div className="max-w-7xl w-full h-full px-8 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="relative group">
+          <div className={`relative ${!isEditPage ? 'group' : ''}`}>
             <select
               value={currentMunicipality?.id || ''}
               onChange={(e) => setCurrentMunicipality(e.target.value)}
-              className="appearance-none w-48 flex items-center gap-2 pl-8 pr-8 py-1.5 bg-slate-50 border border-slate-200 hover:border-blue-300 rounded-lg text-xs font-bold text-slate-700 cursor-pointer outline-none focus:ring-2 focus:ring-blue-100 transition-all shadow-sm"
+              disabled={isEditPage}
+              className={`appearance-none w-48 flex items-center gap-2 pl-8 pr-8 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 outline-none transition-all shadow-sm ${
+                isEditPage 
+                  ? 'opacity-50 cursor-not-allowed bg-slate-100 border-slate-200' 
+                  : 'hover:border-blue-300 focus:ring-2 focus:ring-blue-100 cursor-pointer'
+              }`}
             >
               <option value="" disabled>Selecione um município</option>
               {municipalities.map((m) => (
@@ -24,8 +34,8 @@ export function Header() {
                 </option>
               ))}
             </select>
-            <MapPin size={14} className="text-blue-600 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <ChevronDown size={14} className="text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none group-hover:text-blue-500 transition-colors" />
+            <MapPin size={14} className={`${isEditPage ? 'text-slate-400' : 'text-blue-600'} absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none`} />
+            <ChevronDown size={14} className={`text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none transition-colors ${!isEditPage ? 'group-hover:text-blue-500' : ''}`} />
           </div>
         </div>
 

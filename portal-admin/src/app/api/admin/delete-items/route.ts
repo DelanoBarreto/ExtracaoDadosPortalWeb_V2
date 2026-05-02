@@ -21,6 +21,9 @@ export async function POST(request: Request) {
     } else if (modulo === 'secretarias') {
       table = 'tab_secretarias';
       fileColumn = 'foto_url';
+    } else if (modulo === 'gestores') {
+      table = 'tab_gestores';
+      fileColumn = 'foto_url';
     } else {
       return NextResponse.json({ error: 'Módulo inválido.' }, { status: 400 });
     }

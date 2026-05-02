@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { MapPin, Search, User, LogOut, Settings } from 'lucide-react';
+import { MapPin, Search, User, LogOut, Settings, ChevronDown, LayoutDashboard, Building2, Newspaper, Scale, ShieldAlert, Cpu } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMunicipalityStore } from '@/store/municipality';
 
@@ -13,14 +13,52 @@ interface NavItem {
   color?: string; // Para o console de raspagem, por exemplo
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { id: 'dashboard', label: 'Dashboard', path: '/dashboard' },
-  { id: 'noticias', label: 'Notícias', path: '/noticias' },
-  { id: 'lrf', label: 'LRF', path: '/lrf' },
-  { id: 'atos', label: 'Atos Oficiais', path: '/atos' },
-  { id: 'secretarias', label: 'Secretarias', path: '/secretarias' },
-  { id: 'configuracoes', label: 'Configurações', path: '/configuracoes' },
-  { id: 'scraper', label: 'Console de Raspagem', path: '/scraper', color: 'text-rose-300' },
+interface NavGroup {
+  id: string;
+  label: string;
+  icon: React.ElementType;
+  items: NavItem[];
+}
+
+// O Dashboard é fixo fora de grupos
+const DASHBOARD_ITEM: NavItem = { id: 'dashboard', label: 'Dashboard', path: '/dashboard' };
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    id: 'institucional',
+    label: 'Institucional',
+    icon: Building2,
+    items: [
+      { id: 'gestores', label: 'Gestores Municipais', path: '/gestores' },
+      { id: 'secretarias', label: 'Secretarias', path: '/secretarias' },
+    ]
+  },
+  {
+    id: 'comunicacao',
+    label: 'Comunicação',
+    icon: Newspaper,
+    items: [
+      { id: 'noticias', label: 'Notícias', path: '/noticias' },
+    ]
+  },
+  {
+    id: 'transparencia',
+    label: 'Transparência & LRF',
+    icon: Scale,
+    items: [
+      { id: 'lrf', label: 'LRF', path: '/lrf' },
+      { id: 'atos', label: 'Atos Oficiais', path: '/atos' },
+    ]
+  },
+  {
+    id: 'sistema',
+    label: 'Sistema',
+    icon: Cpu,
+    items: [
+      { id: 'configuracoes', label: 'Configurações', path: '/configuracoes' },
+      { id: 'scraper', label: 'Console de Raspagem', path: '/scraper', color: 'text-rose-300' },
+    ]
+  }
 ];
 
 export function Sidebar() {
@@ -30,6 +68,17 @@ export function Sidebar() {
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Estado para controlar qual grupo está aberto. 
+  // Por padrão, abrimos o grupo que contém a rota atual.
+  const [openGroup, setOpenGroup] = useState<string | null>(() => {
+    const activeGroup = NAV_GROUPS.find(g => g.items.some(item => pathname.startsWith(item.path)));
+    return activeGroup ? activeGroup.id : null;
+  });
+
+  const toggleGroup = (groupId: string) => {
+    setOpenGroup(prev => prev === groupId ? null : groupId);
+  };
 
   const filtered = municipalities.filter(m =>
     m.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -37,13 +86,13 @@ export function Sidebar() {
 
   const isActive = (path: string) => pathname.startsWith(path);
 
-  const NavBtn = ({ item }: { item: NavItem }) => {
+  const NavBtn = ({ item, isSubItem = false }: { item: NavItem, isSubItem?: boolean }) => {
     const active = isActive(item.path);
     return (
       <button
         key={item.id}
         onClick={() => router.push(item.path)}
-        className={`w-full flex items-center px-6 py-2.5 transition-all relative text-left cursor-pointer ${
+        className={`w-full flex items-center ${isSubItem ? 'px-11 py-2' : 'px-6 py-2.5'} transition-all relative text-left cursor-pointer ${
           active
             ? 'bg-[#153B6A] text-white font-bold'
             : `text-slate-300 hover:text-white hover:bg-white/5 font-medium ${item.color || ''}`
@@ -55,7 +104,7 @@ export function Sidebar() {
             className="absolute left-0 top-0 bottom-0 w-1 bg-cyan-400"
           />
         )}
-        <span className="text-[14px]">{item.label}</span>
+        <span className={`${isSubItem ? 'text-[13px]' : 'text-[14px]'}`}>{item.label}</span>
       </button>
     );
   };
@@ -64,7 +113,7 @@ export function Sidebar() {
     <aside className="w-[260px] bg-[#07264D] flex flex-col h-screen shrink-0 border-r border-white/10 relative z-40">
       
       {/* ── Branding ──────────────────────────────────────────────────── */}
-      <div className="px-6 pt-5 pb-4 border-b border-white/5">
+      <div className="px-6 pt-5 pb-4 border-b border-white/5 shrink-0">
         <div className="flex items-center gap-2 mb-1">
           <span className="text-[20px] font-bold text-white tracking-tight">Portal<span className="text-white">Gov</span></span>
           <span className="text-[10px] font-bold border border-blue-400 text-blue-400 px-1.5 py-0.5 rounded tracking-wide ml-2">EXTRAÇÃO</span>
@@ -74,11 +123,59 @@ export function Sidebar() {
 
       {/* ── Navegação Principal ────────────────────────────────────────── */}
       <nav className="flex-1 py-4 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10">
-        {NAV_ITEMS.map(item => <NavBtn key={item.id} item={item} />)}
+        
+        {/* Dashboard (Item Fixo) */}
+        <div className="mb-2">
+          <NavBtn item={DASHBOARD_ITEM} />
+        </div>
+
+        {/* Grupos de Navegação */}
+        {NAV_GROUPS.map(group => {
+          const isOpen = openGroup === group.id;
+          const hasActiveChild = group.items.some(item => isActive(item.path));
+          
+          return (
+            <div key={group.id} className="mb-1">
+              <button
+                onClick={() => toggleGroup(group.id)}
+                className={`w-full flex items-center justify-between px-6 py-2 transition-colors cursor-pointer ${
+                  hasActiveChild && !isOpen ? 'text-white font-semibold' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <group.icon size={16} className={hasActiveChild ? 'text-cyan-400' : ''} />
+                  <span className="text-[12px] font-bold tracking-wider uppercase">{group.label}</span>
+                </div>
+                <ChevronDown 
+                  size={14} 
+                  className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} 
+                />
+              </button>
+
+              <AnimatePresence initial={false}>
+                {isOpen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="py-1">
+                      {group.items.map(item => (
+                        <NavBtn key={item.id} item={item} isSubItem={true} />
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          );
+        })}
       </nav>
 
       {/* ── Footer: Município e Usuário ───────────────────────────────── */}
-      <div className="mt-auto border-t border-white/5 bg-[#051C3A]">
+      <div className="mt-auto shrink-0 border-t border-white/5 bg-[#051C3A]">
         {/* Seletor de Município */}
         <div className="relative border-b border-white/5">
           <button

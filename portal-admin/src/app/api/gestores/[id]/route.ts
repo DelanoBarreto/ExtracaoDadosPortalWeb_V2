@@ -1,34 +1,25 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-    const { data, error } = await supabaseAdmin
-      .from('tab_noticias')
-      .select('*')
-      .eq('id', id)
-      .single();
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const { data, error } = await supabaseAdmin
+    .from('tab_gestores')
+    .select('*')
+    .eq('id', id)
+    .single();
 
-    if (error) throw error;
-    return NextResponse.json(data);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!data) return NextResponse.json({ error: 'Gestor não encontrado' }, { status: 404 });
+  return NextResponse.json(data);
 }
 
-export async function PUT(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const body = await request.json();
     const { data, error } = await supabaseAdmin
-      .from('tab_noticias')
+      .from('tab_gestores')
       .update(body)
       .eq('id', id)
       .select()
@@ -41,29 +32,26 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
 
-    // 1. Buscar a notícia para obter a URL da imagem
-    const { data: noticia, error: fetchError } = await supabaseAdmin
-      .from('tab_noticias')
-      .select('imagem_url')
+    // 1. Buscar o gestor para obter a URL da foto
+    const { data: gestor, error: fetchError } = await supabaseAdmin
+      .from('tab_gestores')
+      .select('foto_url')
       .eq('id', id)
       .single();
 
     if (fetchError) {
-      console.error('Erro ao buscar notícia para exclusão:', fetchError);
+      console.error('Erro ao buscar gestor para exclusão:', fetchError);
     }
 
-    // 2. Se houver uma imagem, tentar excluir do storage
-    if (noticia?.imagem_url) {
+    // 2. Se houver uma foto, tentar excluir do storage
+    if (gestor?.foto_url) {
       const bucketName = 'arquivos_municipais';
       // Tenta extrair o path relativo do storage a partir da URL pública
-      const urlParts = noticia.imagem_url.split(`${bucketName}/`);
+      const urlParts = gestor.foto_url.split(`${bucketName}/`);
       if (urlParts.length > 1) {
         const filePath = urlParts[1];
         const { error: storageError } = await supabaseAdmin.storage
@@ -78,7 +66,7 @@ export async function DELETE(
 
     // 3. Excluir o registro do banco
     const { error: deleteError } = await supabaseAdmin
-      .from('tab_noticias')
+      .from('tab_gestores')
       .delete()
       .eq('id', id);
 
@@ -86,7 +74,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error('Erro na rota de exclusão de notícia:', error);
+    console.error('Erro na rota de exclusão de gestor:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
