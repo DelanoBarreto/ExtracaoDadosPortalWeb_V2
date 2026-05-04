@@ -83,7 +83,8 @@ export const RichTextEditor = ({
     onUpdate: ({ editor }) => {
       // Marca que a mudança veio do editor — não deve ser revertida pelo useEffect
       isEditorUpdate.current = true;
-      onChangeRef.current(editor.getHTML());
+      const html = editor.isEmpty ? '' : editor.getHTML();
+      onChangeRef.current(html);
     },
     editorProps: {
       attributes: { class: 'focus:outline-none' },

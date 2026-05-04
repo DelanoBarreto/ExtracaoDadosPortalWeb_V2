@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { MapPin, Search, User, LogOut, Settings, ChevronDown, LayoutDashboard, Building2, Newspaper, Scale, ShieldAlert, Cpu } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMunicipalityStore } from '@/store/municipality';
+import { useUiStore } from '@/store/ui';
 
 interface NavItem {
   id: string;
@@ -48,6 +49,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: 'lrf', label: 'LRF', path: '/lrf' },
       { id: 'atos', label: 'Atos Oficiais', path: '/atos' },
+      { id: 'portarias', label: 'Portarias', path: '/portarias' },
     ]
   },
   {
@@ -68,15 +70,16 @@ export function Sidebar() {
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
   
-  // Estado para controlar qual grupo está aberto. 
-  // Por padrão, abrimos o grupo que contém a rota atual.
-  const [openGroup, setOpenGroup] = useState<string | null>(() => {
-    const activeGroup = NAV_GROUPS.find(g => g.items.some(item => pathname.startsWith(item.path)));
-    return activeGroup ? activeGroup.id : null;
-  });
+  const { isSidebarLocked } = useUiStore();
+
+  // Bloqueia automaticamente quando estiver em qualquer página de edição ou criação
+  const isOnEditPage = pathname.includes('/edit') || pathname.endsWith('/new');
+  const shouldBeLocked = isSidebarLocked || isOnEditPage;
 
   const toggleGroup = (groupId: string) => {
+    if (shouldBeLocked) return;
     setOpenGroup(prev => prev === groupId ? null : groupId);
   };
 
@@ -91,8 +94,11 @@ export function Sidebar() {
     return (
       <button
         key={item.id}
-        onClick={() => router.push(item.path)}
-        className={`w-full flex items-center ${isSubItem ? 'px-11 py-2' : 'px-6 py-2.5'} transition-all relative text-left cursor-pointer ${
+        onClick={() => !shouldBeLocked && router.push(item.path)}
+        disabled={shouldBeLocked}
+        className={`w-full flex items-center ${isSubItem ? 'px-11 py-2' : 'px-6 py-2.5'} transition-all relative text-left ${
+          shouldBeLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+        } ${
           active
             ? 'bg-[#153B6A] text-white font-bold'
             : `text-slate-300 hover:text-white hover:bg-white/5 font-medium ${item.color || ''}`
@@ -112,6 +118,14 @@ export function Sidebar() {
   return (
     <aside className="w-[260px] bg-[#07264D] flex flex-col h-screen shrink-0 border-r border-white/10 relative z-40">
       
+      {/* ── Overlay de Bloqueio: cobre toda a sidebar e bloqueia cliques ─ */}
+      {shouldBeLocked && (
+        <div 
+          className="absolute inset-0 cursor-not-allowed"
+          style={{ zIndex: 9999, pointerEvents: 'all', background: 'rgba(7,38,77,0.55)' }}
+        />
+      )}
+
       {/* ── Branding ──────────────────────────────────────────────────── */}
       <div className="px-6 pt-5 pb-4 border-b border-white/5 shrink-0">
         <div className="flex items-center gap-2 mb-1">
@@ -138,7 +152,8 @@ export function Sidebar() {
             <div key={group.id} className="mb-1">
               <button
                 onClick={() => toggleGroup(group.id)}
-                className={`w-full flex items-center justify-between px-6 py-2 transition-colors cursor-pointer ${
+                disabled={shouldBeLocked}
+                className={`w-full flex items-center justify-between px-6 py-2 transition-colors ${shouldBeLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} ${
                   hasActiveChild && !isOpen ? 'text-white font-semibold' : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -179,8 +194,9 @@ export function Sidebar() {
         {/* Seletor de Município */}
         <div className="relative border-b border-white/5">
           <button
-            onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="w-full flex flex-col p-3 hover:bg-white/5 transition-all text-left cursor-pointer"
+            onClick={() => !shouldBeLocked && setDropdownOpen(!dropdownOpen)}
+            disabled={shouldBeLocked}
+            className={`w-full flex flex-col p-3 transition-all text-left ${shouldBeLocked ? 'cursor-not-allowed opacity-50' : 'hover:bg-white/5 cursor-pointer'}`}
           >
             <span className="text-[10px] font-bold text-blue-300 uppercase tracking-widest mb-1">Prefeitura Ativa</span>
             <div className="flex items-center justify-between">

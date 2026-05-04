@@ -17,6 +17,8 @@ export async function DELETE(request: Request) {
     if (modulo === 'noticias') table = 'tab_noticias';
     else if (modulo === 'lrf') table = 'tab_lrf';
     else if (modulo === 'secretarias') table = 'tab_secretarias';
+    else if (modulo === 'gestores') table = 'tab_gestores';
+    else if (modulo === 'portarias') table = 'tab_portarias';
     else {
       return NextResponse.json({ error: 'Módulo inválido.' }, { status: 400 });
     }
@@ -41,7 +43,8 @@ export async function DELETE(request: Request) {
       let folderName = modulo;
       if (modulo === 'lrf') folderName = 'LRF';
       else if (modulo === 'secretarias') folderName = 'Secretarias';
-      // noticias already matches 'noticias'
+      else if (modulo === 'gestores') folderName = 'Gestores';
+      else if (modulo === 'portarias') folderName = 'portarias';
       
       const folderPath = `${municipio_nome}/${folderName}`;
 

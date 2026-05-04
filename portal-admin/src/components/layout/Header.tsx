@@ -1,16 +1,38 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useMunicipalityStore } from '@/store/municipality';
-import { MapPin, RefreshCw, ChevronDown } from 'lucide-react';
-import { usePathname } from 'next/navigation';
+import { MapPin, ChevronDown, LogOut } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { createBrowserClient } from '@supabase/ssr';
 
 export function Header() {
   const { currentMunicipality, municipalities, setCurrentMunicipality } = useMunicipalityStore();
   const pathname = usePathname();
+  const router = useRouter();
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
-  // Desabilita o seletor em telas de edição ou criação
   const isEditPage = pathname?.includes('/edit') || pathname?.endsWith('/new');
+
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUserEmail(data.user?.email ?? null);
+    });
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/login');
+    router.refresh();
+  };
+
+  // Exibe iniciais do email (ex: "de" de delano@email.com)
+  const initials = userEmail ? userEmail.substring(0, 2).toUpperCase() : 'AD';
 
   return (
     <header className="h-14 border-b border-slate-100 bg-white z-30">
@@ -39,21 +61,26 @@ export function Header() {
           </div>
         </div>
 
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2 text-slate-400">
-            <RefreshCw size={14} className="animate-spin-slow" />
-            <span className="text-[10px] font-bold uppercase tracking-wider">Sincronizado: Agora mesmo</span>
-          </div>
-
+        <div className="flex items-center gap-4">
           <div className="flex items-center gap-3 pl-6 border-l border-slate-100">
             <div className="text-right">
-              <p className="text-xs font-bold text-slate-900 leading-none">Admin</p>
+              <p className="text-xs font-bold text-slate-900 leading-none truncate max-w-[160px]">
+                {userEmail || 'Admin'}
+              </p>
               <p className="text-[10px] font-medium text-slate-400 mt-1 uppercase tracking-tighter">Gestor Master</p>
             </div>
             <div className="w-10 h-10 rounded-full bg-[#003366] flex items-center justify-center text-white font-black text-xs">
-              AD
+              {initials}
             </div>
           </div>
+
+          <button
+            onClick={handleLogout}
+            title="Sair do sistema"
+            className="w-9 h-9 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 flex items-center justify-center transition-all border border-transparent hover:border-red-100"
+          >
+            <LogOut size={16} />
+          </button>
         </div>
       </div>
     </header>

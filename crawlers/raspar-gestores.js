@@ -76,7 +76,7 @@ async function rasparGestores() {
         const titlePre = $el.find('.titlepre');
         
         let nome = titlePre.find('strong').text().trim();
-        let cargo = titlePre.find('p').eq(1).text().trim().toUpperCase();
+        let cargo = titlePre.children('p').eq(1).text().trim().toUpperCase();
         
         // Tratar "Prefeito(a)" e "Vice-prefeito(a)"
         if (cargo.includes('VICE')) cargo = 'VICE-PREFEITO(A)';
@@ -142,6 +142,35 @@ async function rasparGestores() {
         console.log(`[${i + 1}/${totalToProcess}] 👤 ${gestor.nome.substring(0, 40)} (${gestor.cargo}) ${gestor.is_atual ? '[ATUAL]' : '[HISTÓRICO]'}`);
 
         try {
+            // ── Verificação de Duplicidade Preventiva ──────────────────────
+            let query = supabase
+                .from('tab_gestores')
+                .select('id')
+                .eq('municipio_id', municipioId)
+                .eq('nome', gestor.nome)
+                .eq('cargo', gestor.cargo);
+            
+            // Se for gestor ATUAL, buscamos apenas pelo status is_atual
+            // Isso permite que o usuário edite a data de início no dashboard sem gerar duplicidade
+            if (gestor.is_atual) {
+                query = query.eq('is_atual', true);
+            } else {
+                // Para históricos, a data ainda é necessária para distinguir mandatos diferentes
+                if (gestor.data_inicio) {
+                    query = query.eq('data_inicio', gestor.data_inicio);
+                } else {
+                    query = query.is('data_inicio', null);
+                }
+            }
+
+            const { data: existing } = await query.maybeSingle();
+
+            if (existing) {
+                console.log(`      ⏭️ Já cadastrado. Pulando.`);
+                continue;
+            }
+            // ──────────────────────────────────────────────────────────────
+
             // Upload de foto se for atual
             let fotoFinal = null;
             if (gestor.foto_url) {
@@ -163,41 +192,15 @@ async function rasparGestores() {
                 url_origem: gestor.url_origem,
             };
 
-            // Busca para ver se já existe (usamos nome, cargo e data_inicio para diferenciar os mandatos do mesmo prefeito)
-            let query = supabase
+            // Insere novo registro
+            const { error } = await supabase
                 .from('tab_gestores')
-                .select('id')
-                .eq('municipio_id', municipioId)
-                .eq('nome', record.nome)
-                .eq('cargo', record.cargo);
+                .insert([record]);
             
-            if (record.data_inicio) {
-                query = query.eq('data_inicio', record.data_inicio);
-            } else {
-                query = query.is('data_inicio', null);
-            }
+            if (error) throw error;
+            inserted++;
+            console.log(`      ✅ Inserido.`);
 
-            const { data: existing } = await query.maybeSingle();
-
-            if (existing) {
-                // Atualiza (não sobrescreve o status caso o usuário já tenha mudado)
-                delete record.status;
-                const { error } = await supabase
-                    .from('tab_gestores')
-                    .update(record)
-                    .eq('id', existing.id);
-                if (error) throw error;
-                updated++;
-                console.log(`      🔄 Atualizado.`);
-            } else {
-                // Insere
-                const { error } = await supabase
-                    .from('tab_gestores')
-                    .insert([record]);
-                if (error) throw error;
-                inserted++;
-                console.log(`      ✅ Inserido.`);
-            }
         } catch (err) {
             errors++;
             console.error(`      ❌ Erro: ${err.message}`);

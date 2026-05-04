@@ -24,14 +24,19 @@ export async function POST(request: Request) {
     } else if (modulo === 'gestores') {
       table = 'tab_gestores';
       fileColumn = 'foto_url';
+    } else if (modulo === 'portarias') {
+      table = 'tab_portarias';
+      fileColumn = 'arquivo_url';
     } else {
       return NextResponse.json({ error: 'Módulo inválido.' }, { status: 400 });
     }
 
     // 2. Buscar as URLs dos arquivos antes de deletar os registros
+    const selectQuery = modulo === 'lrf' ? `id, ${fileColumn}, anexos` : `id, ${fileColumn}`;
+    
     const { data: items, error: fetchError } = await supabaseAdmin
       .from(table)
-      .select(`id, ${fileColumn}, anexos`)
+      .select(selectQuery)
       .in('id', ids);
 
     if (fetchError) throw fetchError;

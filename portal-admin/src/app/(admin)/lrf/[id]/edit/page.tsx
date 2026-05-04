@@ -1,13 +1,14 @@
 'use client';
 
 import { useRouter, useParams } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowLeft, Save, Calendar, FileText, Loader2, UploadCloud, ChevronDown, Plus, X, Trash2, Globe, ArrowUpDown
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { useMunicipalityStore } from '@/store/municipality';
+import { useUiStore } from '@/store/ui';
 import { supabase } from '@/lib/supabase';
 
 export default function EditLRFPage() {
@@ -15,9 +16,13 @@ export default function EditLRFPage() {
   const params = useParams();
   const queryClient = useQueryClient();
   const { currentMunicipality } = useMunicipalityStore();
+  const { setSidebarLocked } = useUiStore();
   const id = params.id;
+  const isNavigatingAway = useRef(false);
   const [isUploading, setIsUploading] = useState(false);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+  const [initialDataStr, setInitialDataStr] = useState<string | null>(null);
 
   const handleSort = () => {
     const nextOrder = sortOrder === 'asc' ? 'desc' : 'asc';
@@ -130,7 +135,7 @@ export default function EditLRFPage() {
         mappedAnexos.push({ title: 'Documento Principal', storageUrl: legacyUrl });
       }
 
-      setFormData({
+      const mappedData = {
         titulo: item.titulo || '',
         categoria_lrf: tipoMapeado,
         exercicio: item.ano?.toString() || item.exercicio || new Date().getFullYear().toString(),
@@ -140,10 +145,52 @@ export default function EditLRFPage() {
         url_arquivo: legacyUrl,
         url_original: item.url_original || '',
         anexos: mappedAnexos.sort((a, b) => (a.title || '').toLowerCase().localeCompare((b.title || '').toLowerCase()))
-      });
+      };
+
+      setFormData(mappedData);
+      setInitialDataStr(JSON.stringify(mappedData));
+      setIsDirty(false);
+      
       setSortOrder('asc');
     }
   }, [item]);
+
+  useEffect(() => {
+    if (initialDataStr && JSON.stringify(formData) !== initialDataStr) {
+      setIsDirty(true);
+    }
+  }, [formData, initialDataStr]);
+
+  // Listener para prevenir fechamento da aba se houver dados não salvos
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      if (!isNavigatingAway.current) {
+         setSidebarLocked(false);
+      }
+    };
+  }, [isDirty, setSidebarLocked]);
+
+  const handleBack = () => {
+    if (!isDirty) {
+      isNavigatingAway.current = true;
+      setSidebarLocked(false);
+      router.push('/lrf');
+    }
+  };
+
+  const handleCancel = () => {
+    isNavigatingAway.current = true;
+    setSidebarLocked(false);
+    router.push('/lrf');
+  };
 
   const saveMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -180,6 +227,9 @@ export default function EditLRFPage() {
       queryClient.invalidateQueries({ queryKey: ['lrf'] });
       queryClient.invalidateQueries({ queryKey: ['lrf-options'] });
       queryClient.invalidateQueries({ queryKey: ['lrf-counts'] });
+      queryClient.removeQueries({ queryKey: ['lrf', id] });
+      setIsDirty(false);
+      setSidebarLocked(false);
       router.push('/lrf');
     },
     onError: (error: any) => {
@@ -282,40 +332,43 @@ export default function EditLRFPage() {
   if (isLoading) return <div className="p-8 flex items-center justify-center"><Loader2 className="animate-spin text-city-hall-blue" size={32} /></div>;
 
   return (
-    <div className="flex flex-col h-full bg-slate-50 p-8 pt-6 pb-12 mx-[-32px] mt-[-32px]">
-      {/* ── Main Header ────────────────────────────────────────────── */}
-      <header className="flex items-center justify-between mb-8">
+    <div className="flex flex-col h-full bg-bg-main">
+      {/* Header Fixo */}
+      <header className="px-8 pt-6 pb-4 bg-white flex items-center justify-between border-b border-slate-200 mb-6 mx-[-32px] mt-[-32px] sticky top-0 z-10 shadow-sm">
         <div className="flex items-center gap-4">
           <button 
-            onClick={() => router.push('/lrf')}
-            className="flex items-center justify-center w-8 h-8 rounded hover:bg-slate-200 text-slate-600 transition-colors"
+            onClick={handleBack} 
+            disabled={isDirty}
+            className={`p-2 rounded-lg transition-colors flex items-center justify-center w-9 h-9 ${isDirty ? 'text-slate-300 cursor-not-allowed opacity-50' : 'hover:bg-slate-100 text-slate-500 border border-transparent hover:border-slate-200'}`}
             title="Voltar"
           >
             <ArrowLeft size={20} />
           </button>
           <div>
-            <h2 className="text-2xl font-bold text-city-hall-blue tracking-tight m-0 leading-none flex items-center gap-2">
-              {id === 'new' ? 'Novo Documento' : 'Editar Documento'}
+            <h2 className="text-2xl font-black text-slate-900 leading-none">
+              {id === 'new' ? 'Novo Documento LRF' : 'Editar Documento'}
             </h2>
-            <div className="text-[13px] text-slate-500 mt-1">
-              Modifique os dados do arquivo da LRF
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-[12px] text-slate-500 font-medium">Configuração de prestação de contas</p>
+              {isDirty && <span className="text-[10px] font-bold text-amber-500 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">Não salvo</span>}
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <button 
-            onClick={() => router.push('/lrf')}
-            className="px-4 py-2 border border-slate-200 bg-white rounded-md text-[13px] font-semibold text-text-primary hover:bg-gray-50 transition-colors shadow-sm"
+            onClick={handleCancel}
+            className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors flex items-center gap-2"
           >
-            Cancelar
+            <X size={16} /> Cancelar
           </button>
           <button 
             onClick={() => saveMutation.mutate(formData)}
-            className="px-4 py-2 bg-city-hall-blue text-white rounded-md text-[13px] font-medium hover:bg-city-hall-blue/90 transition-colors flex items-center gap-2 shadow-sm"
+            disabled={saveMutation.isPending || (!isDirty && id !== 'new')}
+            className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-semibold hover:bg-slate-800 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Save size={15} />
-            Salvar Alterações
+            {saveMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            {saveMutation.isPending ? 'Salvando...' : 'Salvar Alterações'}
           </button>
         </div>
       </header>

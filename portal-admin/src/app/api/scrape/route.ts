@@ -79,6 +79,7 @@ export async function POST(request: Request) {
       'pcg': 'raspar-pcg.js',
       'secretarias': 'raspar-secretarias-v2.js',
       'gestores': 'raspar-gestores.js',
+      'portarias': 'raspar-portarias.js',
     };
 
     const targetScript = SCRIPT_MAP[modulo];

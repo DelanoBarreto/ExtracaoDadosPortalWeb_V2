@@ -10,15 +10,20 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { supabase } from '@/lib/supabase';
 import { useMunicipalityStore } from '@/store/municipality';
+import { useUiStore } from '@/store/ui';
 
 export default function EditGestorPage() {
   const router = useRouter();
   const params = useParams();
   const queryClient = useQueryClient();
   const { currentMunicipality } = useMunicipalityStore();
+  const { setSidebarLocked } = useUiStore();
   const id = params.id as string;
   const isNew = id === 'new';
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const [isDirty, setIsDirty] = useState(false);
+  const isNavigatingAway = useRef(false);
 
   const [formData, setFormData] = useState({
     nome: '',
@@ -55,8 +60,19 @@ export default function EditGestorPage() {
         foto_url: item.foto_url || '',
         url_origem: item.url_origem || '',
       });
+      setIsDirty(false);
+      setSidebarLocked(false);
+    } else if (isNew) {
+      setIsDirty(false);
+      setSidebarLocked(false);
     }
-  }, [item]);
+  }, [item, isNew, setSidebarLocked]);
+
+  const handleChange = (field: string, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    setIsDirty(true);
+    setSidebarLocked(true);
+  };
 
   // ── Upload de foto para Supabase Storage via API ────────────────────────
   const handlePhotoUpload = async (file: File) => {
@@ -67,16 +83,16 @@ export default function EditGestorPage() {
       const ext = file.name.split('.').pop();
       const path = `${municipioNome}/gestores/${Date.now()}.${ext}`;
 
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('path', path);
-      formData.append('bucket', 'arquivos_municipais');
+      const uploadData = new FormData();
+      uploadData.append('file', file);
+      uploadData.append('path', path);
+      uploadData.append('bucket', 'arquivos_municipais');
 
-      const { data } = await axios.post('/api/admin/upload', formData, {
+      const { data } = await axios.post('/api/admin/upload', uploadData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
-      setFormData(prev => ({ ...prev, foto_url: data.publicUrl }));
+      handleChange('foto_url', data.publicUrl);
     } catch (err: any) {
       alert('Erro ao fazer upload: ' + (err.response?.data?.error || err.message));
     } finally {
@@ -105,6 +121,8 @@ export default function EditGestorPage() {
       if (!isNew) {
         queryClient.removeQueries({ queryKey: ['gestores', id] });
       }
+      setIsDirty(false);
+      setSidebarLocked(false);
       router.push('/gestores');
     },
     onError: (err: any) => {
@@ -112,6 +130,39 @@ export default function EditGestorPage() {
       alert('Erro ao salvar: ' + (err.response?.data?.error || err.message));
     }
   });
+
+  // Tratar botão de Voltar
+  const handleBack = () => {
+    if (!isDirty) {
+      isNavigatingAway.current = true;
+      setSidebarLocked(false);
+      router.push('/gestores');
+    }
+  };
+
+  // Tratar Cancelar (sai sem salvar)
+  const handleCancel = () => {
+    isNavigatingAway.current = true;
+    setSidebarLocked(false);
+    router.push('/gestores');
+  };
+
+  // Listener para prevenir fechamento da aba se houver dados não salvos
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      if (!isNavigatingAway.current) {
+         setSidebarLocked(false);
+      }
+    };
+  }, [isDirty, setSidebarLocked]);
 
   // ── Delete ────────────────────────────────────────────────────────────
   const deleteMutation = useMutation({
@@ -179,8 +230,9 @@ export default function EditGestorPage() {
       <header className="sticky top-0 z-[100] px-8 py-4 bg-white/90 backdrop-blur-md flex items-center justify-between border-b border-border-color mb-6 mx-[-32px] mt-[-32px] shadow-sm">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => router.push('/gestores')}
-            className="flex items-center justify-center w-9 h-9 rounded-xl hover:bg-slate-100 text-slate-500 transition-all border border-transparent hover:border-slate-200"
+            onClick={handleBack}
+            disabled={isDirty}
+            className={`flex items-center justify-center w-9 h-9 rounded-xl transition-all border ${isDirty ? 'text-slate-300 cursor-not-allowed border-transparent opacity-50' : 'hover:bg-slate-100 text-slate-500 border-transparent hover:border-slate-200'}`}
             title="Voltar"
           >
             <ArrowLeft size={20} />
@@ -189,22 +241,25 @@ export default function EditGestorPage() {
             <h2 className="text-xl font-black text-slate-900 tracking-tight m-0 leading-none">
               {isNew ? 'Novo Gestor' : 'Editar Gestor'}
             </h2>
-            <p className="text-[11px] font-bold text-slate-400 mt-1.5 uppercase tracking-wider">
-              {isNew ? 'Adicionar prefeito ou vice' : 'Atualizar informações do gestor'}
-            </p>
+            <div className="flex items-center gap-2 mt-1.5">
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                {isNew ? 'Adicionar prefeito ou vice' : 'Atualizar informações do gestor'}
+              </p>
+              {isDirty && <span className="text-[10px] font-bold text-amber-500 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">Não salvo</span>}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <div className="w-px h-6 bg-slate-200 mx-1" />
           <button
-            onClick={() => router.push('/gestores')}
+            onClick={handleCancel}
             className="h-10 px-4 border border-slate-200 bg-white rounded-xl text-[13px] font-bold text-slate-500 hover:bg-slate-50 transition-all flex items-center gap-2"
           >
             <X size={16} /> Cancelar
           </button>
           <button
             onClick={() => saveMutation.mutate(formData)}
-            disabled={saveMutation.isPending || !formData.nome}
+            disabled={saveMutation.isPending || (!isDirty && !isNew) || !formData.nome}
             className="h-10 px-6 bg-[#004c99] text-white rounded-xl text-[13px] font-bold hover:bg-[#003366] transition-all flex items-center gap-2 shadow-lg shadow-blue-100 disabled:opacity-50"
           >
             <Save size={16} />
@@ -227,7 +282,7 @@ export default function EditGestorPage() {
             <input
               id="field-nome"
               value={formData.nome}
-              onChange={e => setFormData({ ...formData, nome: e.target.value })}
+              onChange={e => handleChange('nome', e.target.value)}
               onKeyDown={handleKeyDown}
               className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors"
               placeholder="Ex: João da Silva..."
@@ -243,7 +298,7 @@ export default function EditGestorPage() {
               <select
                 id="field-cargo"
                 value={formData.cargo}
-                onChange={e => setFormData({ ...formData, cargo: e.target.value })}
+                onChange={e => handleChange('cargo', e.target.value)}
                 onKeyDown={handleKeyDown}
                 className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors"
               >
@@ -260,7 +315,7 @@ export default function EditGestorPage() {
                 id="field-inicio"
                 type="date"
                 value={formData.data_inicio}
-                onChange={e => setFormData({ ...formData, data_inicio: e.target.value })}
+                onChange={e => handleChange('data_inicio', e.target.value)}
                 onKeyDown={handleKeyDown}
                 className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors"
               />
@@ -272,7 +327,7 @@ export default function EditGestorPage() {
                     type="checkbox" 
                     id="is_atual"
                     checked={formData.is_atual}
-                    onChange={e => setFormData({ ...formData, is_atual: e.target.checked })}
+                    onChange={e => handleChange('is_atual', e.target.checked)}
                     className="w-4 h-4 rounded border-slate-300 text-[#004c99] focus:ring-[#004c99] cursor-pointer"
                  />
                  <label htmlFor="is_atual" className="text-[13px] font-semibold text-slate-700 cursor-pointer select-none">
@@ -289,7 +344,7 @@ export default function EditGestorPage() {
                 id="field-fim"
                 type="date"
                 value={formData.data_fim}
-                onChange={e => setFormData({ ...formData, data_fim: e.target.value })}
+                onChange={e => handleChange('data_fim', e.target.value)}
                 onKeyDown={handleKeyDown}
                 disabled={formData.is_atual}
                 className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors disabled:bg-slate-50 disabled:text-slate-400"
@@ -309,7 +364,7 @@ export default function EditGestorPage() {
               <label className="text-[13px] font-semibold text-slate-700">Status da Publicação</label>
               <select
                 value={formData.status}
-                onChange={e => setFormData({ ...formData, status: e.target.value })}
+                onChange={e => handleChange('status', e.target.value)}
                 onKeyDown={handleKeyDown}
                 className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[14px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors"
               >
@@ -375,7 +430,7 @@ export default function EditGestorPage() {
                 {formData.foto_url && (
                   <button
                     type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, foto_url: '' }))}
+                    onClick={() => handleChange('foto_url', '')}
                     className="py-1.5 px-3 text-[12px] font-semibold border border-red-200 rounded-md text-red-500 hover:bg-red-50 transition-colors flex items-center gap-1"
                     title="Remover foto"
                   >
@@ -390,7 +445,7 @@ export default function EditGestorPage() {
                <label className="text-[11px] font-semibold text-slate-500">URL da Imagem (Opcional)</label>
                <input
                  value={formData.foto_url}
-                 onChange={e => setFormData({ ...formData, foto_url: e.target.value })}
+                 onChange={e => handleChange('foto_url', e.target.value)}
                  className="w-full bg-white border border-border-color rounded-md px-3 py-2 text-[12px] text-text-primary outline-none focus:border-city-hall-accent focus:ring-2 focus:ring-city-hall-accent/50 transition-colors"
                  placeholder="https://..."
                />

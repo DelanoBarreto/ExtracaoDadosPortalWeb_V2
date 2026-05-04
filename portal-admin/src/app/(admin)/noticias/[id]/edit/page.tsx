@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useParams } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   ArrowLeft, 
   Save, 
@@ -10,19 +10,25 @@ import {
   UploadCloud,
   Loader2,
   X,
-  Plus
+  Plus,
+  Image as ImageIcon
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { RichTextEditor } from '@/components/editor/RichTextEditor';
 import { usePortalStore } from '@/store/usePortalStore';
+import { useUiStore } from '@/store/ui';
 
 export default function EditNoticiaPage() {
   const router = useRouter();
   const params = useParams();
   const { municipioAtivo } = usePortalStore();
+  const { setSidebarLocked } = useUiStore();
   const queryClient = useQueryClient();
-  const id = params.id;
+  const id = params.id as string;
+  const isNavigatingAway = useRef(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [initialDataStr, setInitialDataStr] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     titulo: '',
@@ -58,7 +64,7 @@ export default function EditNoticiaPage() {
         try { dataPub = new Date(noticia.data_publicacao).toISOString().split('T')[0]; } catch(e){}
       }
 
-      setFormData({
+      const mappedData = {
         titulo: noticia.titulo || '',
         resumo: noticia.resumo || '',
         conteudo: noticia.conteudo || '',
@@ -69,7 +75,11 @@ export default function EditNoticiaPage() {
         status: noticia.status || 'rascunho',
         categoria: noticia.categoria || '',
         imagem_url: noticia.imagem_url || ''
-      });
+      };
+
+      setFormData(mappedData);
+      setInitialDataStr(JSON.stringify(mappedData));
+      setIsDirty(false);
 
       if (noticia.categoria && !availableCategories.includes(noticia.categoria)) {
         setAvailableCategories(prev => {
@@ -79,6 +89,12 @@ export default function EditNoticiaPage() {
       }
     }
   }, [noticia]);
+
+  useEffect(() => {
+    if (initialDataStr && JSON.stringify(formData) !== initialDataStr) {
+      setIsDirty(true);
+    }
+  }, [formData, initialDataStr]);
 
   // Mutação para salvar — distingue criação (POST) de atualização (PUT)
   const saveMutation = useMutation({
@@ -109,6 +125,9 @@ export default function EditNoticiaPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['noticias'] });
+      queryClient.removeQueries({ queryKey: ['noticia', id] });
+      setIsDirty(false);
+      setSidebarLocked(false);
       router.push('/noticias');
     },
     onError: (error: any) => {
@@ -133,7 +152,38 @@ export default function EditNoticiaPage() {
   };
 
   const [isUploading, setIsUploading] = useState(false);
-  const fileInputRef = useState<any>(null); // Referência para o input file
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Listener para prevenir fechamento da aba se houver dados não salvos
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      if (!isNavigatingAway.current) {
+         setSidebarLocked(false);
+      }
+    };
+  }, [isDirty, setSidebarLocked]);
+
+  const handleBack = () => {
+    if (!isDirty) {
+      isNavigatingAway.current = true;
+      setSidebarLocked(false);
+      router.push('/noticias');
+    }
+  };
+
+  const handleCancel = () => {
+    isNavigatingAway.current = true;
+    setSidebarLocked(false);
+    router.push('/noticias');
+  };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -180,40 +230,42 @@ export default function EditNoticiaPage() {
 
   return (
     <div className="flex flex-col h-full bg-bg-main">
-      {/* ── Main Header ────────────────────────────────────────────── */}
-      <header className="px-8 pt-6 pb-4 bg-white flex items-center justify-between border-b border-border-color mb-6 mx-[-32px] mt-[-32px]">
+      {/* Header Fixo */}
+      <header className="px-8 pt-6 pb-4 bg-white flex items-center justify-between border-b border-slate-200 mb-6 mx-[-32px] mt-[-32px] sticky top-0 z-10">
         <div className="flex items-center gap-4">
           <button 
-            onClick={() => router.push('/noticias')}
-            className="flex items-center justify-center w-8 h-8 rounded hover:bg-slate-100 text-slate-500 transition-colors"
+            onClick={handleBack} 
+            disabled={isDirty}
+            className={`p-2 rounded-lg transition-colors flex items-center justify-center w-9 h-9 ${isDirty ? 'text-slate-300 cursor-not-allowed opacity-50' : 'hover:bg-slate-100 text-slate-500 border border-transparent hover:border-slate-200'}`}
             title="Voltar"
           >
             <ArrowLeft size={20} />
           </button>
           <div>
-            <h2 className="text-2xl font-bold text-city-hall-blue tracking-tight m-0 leading-none">
+            <h2 className="text-2xl font-black text-slate-900 leading-none">
               {id === 'new' ? 'Nova Publicação' : 'Editar Publicação'}
             </h2>
-            <div className="text-[12px] text-slate-500 mt-1">
-              Preencha os campos abaixo para {id === 'new' ? 'criar' : 'atualizar'} o conteúdo.
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-[12px] text-slate-500 font-medium">Configuração de publicação</p>
+              {isDirty && <span className="text-[10px] font-bold text-amber-500 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">Não salvo</span>}
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <button 
-            onClick={() => router.push('/noticias')}
-            className="px-4 py-2 border border-border-color bg-white rounded-md text-[13px] font-semibold text-text-primary hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
+            onClick={handleCancel}
+            className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors flex items-center gap-2"
           >
-            <X size={15} />
-            Cancelar
+            <X size={16} /> Cancelar
           </button>
           <button 
             onClick={() => saveMutation.mutate(formData)}
-            className="px-4 py-2 bg-city-hall-accent text-white rounded-md text-[13px] font-medium hover:bg-city-hall-blue transition-colors flex items-center gap-2 shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
+            disabled={saveMutation.isPending || (!isDirty && id !== 'new')}
+            className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-semibold hover:bg-slate-800 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Save size={15} />
-            Salvar Alterações
+            {saveMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            {saveMutation.isPending ? 'Salvando...' : 'Salvar Alterações'}
           </button>
         </div>
       </header>
@@ -327,6 +379,7 @@ export default function EditNoticiaPage() {
               <label className="text-[13px] font-semibold text-slate-700 block">Imagem de Capa</label>
               
               <input 
+                ref={fileInputRef}
                 type="file"
                 id="image-upload"
                 className="hidden"
@@ -334,47 +387,62 @@ export default function EditNoticiaPage() {
                 onChange={handleImageUpload}
               />
 
-              {formData.imagem_url ? (
-                <div className="relative w-full h-40 rounded-md overflow-hidden group border border-slate-200">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={formData.imagem_url} alt="Capa" className="w-full h-full object-cover" />
-                  
-                  {isUploading && (
-                    <div className="absolute inset-0 bg-white/60 flex items-center justify-center z-20">
-                      <Loader2 className="animate-spin text-blue-500" size={24} />
-                    </div>
-                  )}
-
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 z-10">
-                    <button 
-                      onClick={() => document.getElementById('image-upload')?.click()}
-                      className="px-3 py-1.5 bg-white rounded-md text-[12px] font-medium text-slate-700 flex items-center gap-2 hover:bg-slate-50"
-                    >
-                      <UploadCloud size={14} /> Trocar Imagem
-                    </button>
-                    <button 
-                      onClick={() => setFormData({ ...formData, imagem_url: '' })}
-                      className="px-3 py-1.5 bg-red-500 text-white rounded-md text-[12px] font-medium flex items-center gap-2 hover:bg-red-600"
-                    >
-                      <Trash2 size={14} /> Remover
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div 
-                  onClick={() => document.getElementById('image-upload')?.click()}
-                  className="w-full h-40 bg-slate-50 border-2 border-dashed border-slate-300 rounded-md flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-slate-100 hover:border-slate-400 transition-colors"
-                >
-                  {isUploading ? (
+              {/* Imagem Preview / Upload Area */}
+              <div
+                onClick={() => !isUploading && fileInputRef.current?.click()}
+                className="aspect-video w-full rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-2 bg-slate-50 hover:border-blue-400 hover:bg-blue-50/50 transition-all cursor-pointer group overflow-hidden relative shadow-inner"
+              >
+                {formData.imagem_url ? (
+                  <img
+                    src={formData.imagem_url}
+                    alt="Capa da notícia"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <>
+                    <UploadCloud size={24} className="text-slate-400 group-hover:text-blue-500 transition-colors" />
+                    <span className="text-[12px] font-medium text-slate-500 group-hover:text-blue-500 transition-colors text-center px-4">
+                      {isUploading ? 'Enviando...' : 'Clique para carregar imagem de capa'}
+                    </span>
+                  </>
+                )}
+                
+                {isUploading && (
+                  <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-20">
                     <Loader2 className="animate-spin text-blue-500" size={24} />
-                  ) : (
-                    <>
-                      <UploadCloud size={24} className="text-slate-400" />
-                      <span className="text-[12px] font-medium text-slate-500 text-center px-4">Clique para enviar a imagem de capa</span>
-                    </>
-                  )}
-                </div>
-              )}
+                  </div>
+                )}
+
+                {formData.imagem_url && !isUploading && (
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 z-10">
+                    <div className="px-3 py-1.5 bg-white/90 backdrop-blur-sm rounded-lg text-[12px] font-bold text-slate-700 flex items-center gap-2">
+                      <ImageIcon size={14} /> Trocar Imagem
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Ações da Imagem */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex-1 py-1.5 text-[12px] font-semibold border border-slate-200 rounded-md text-slate-700 hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <UploadCloud size={14} />
+                  Alterar
+                </button>
+                {formData.imagem_url && (
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, imagem_url: '' }))}
+                    className="px-3 py-1.5 text-[12px] font-semibold border border-red-100 text-red-600 rounded-md hover:bg-red-50 transition-colors flex items-center justify-center gap-1.5"
+                    title="Remover imagem"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
