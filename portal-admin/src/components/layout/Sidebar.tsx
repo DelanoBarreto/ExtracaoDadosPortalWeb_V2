@@ -50,6 +50,7 @@ const NAV_GROUPS: NavGroup[] = [
       { id: 'lrf', label: 'LRF', path: '/lrf' },
       { id: 'atos', label: 'Atos Oficiais', path: '/atos' },
       { id: 'portarias', label: 'Portarias', path: '/portarias' },
+      { id: 'decretos', label: 'Decretos', path: '/decretos' },
     ]
   },
   {

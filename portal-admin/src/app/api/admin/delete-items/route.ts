@@ -27,6 +27,9 @@ export async function POST(request: Request) {
     } else if (modulo === 'portarias') {
       table = 'tab_portarias';
       fileColumn = 'arquivo_url';
+    } else if (modulo === 'decretos') {
+      table = 'tab_decretos';
+      fileColumn = 'arquivo_url';
     } else {
       return NextResponse.json({ error: 'Módulo inválido.' }, { status: 400 });
     }

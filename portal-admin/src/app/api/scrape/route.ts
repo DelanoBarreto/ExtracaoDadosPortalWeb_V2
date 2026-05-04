@@ -80,6 +80,7 @@ export async function POST(request: Request) {
       'secretarias': 'raspar-secretarias-v2.js',
       'gestores': 'raspar-gestores.js',
       'portarias': 'raspar-portarias.js',
+      'decretos': 'raspar-decretos.js',
     };
 
     const targetScript = SCRIPT_MAP[modulo];

@@ -18,6 +18,8 @@ interface MetricsData {
   noticias: { total: number; publicado: number; rascunho: number; arquivado: number };
   lrf: { total: number; publicado: number; rascunho: number; arquivado: number };
   secretarias: { total: number };
+  portarias: { total: number; publicado: number; rascunho: number; arquivado: number };
+  decretos: { total: number; publicado: number; rascunho: number; arquivado: number };
   ultimas: any[];
   source?: string;
 }
@@ -34,6 +36,8 @@ export default function DashboardPage() {
           noticias: { total: 0, publicado: 0, rascunho: 0, arquivado: 0 },
           lrf: { total: 0, publicado: 0, rascunho: 0, arquivado: 0 },
           secretarias: { total: 0 },
+          portarias: { total: 0, publicado: 0, rascunho: 0, arquivado: 0 },
+          decretos: { total: 0, publicado: 0, rascunho: 0, arquivado: 0 },
           ultimas: [],
         };
       }
@@ -207,7 +211,7 @@ export default function DashboardPage() {
             {isLoading ? <span className="text-slate-300 text-2xl">...</span> : ((stats?.noticias.rascunho ?? 0) + (stats?.lrf.rascunho ?? 0))}
           </span>
           <div className="mt-3 pt-3 border-t border-slate-100">
-            <span className="text-[10px] font-bold text-slate-400">Notícias + LRF combinados</span>
+            <span className="text-[10px] font-bold text-slate-400">Notícias, LRF, Portarias, etc</span>
           </div>
         </motion.div>
 
@@ -336,6 +340,88 @@ export default function DashboardPage() {
                 <td className="px-6 py-4 text-center"><span className="text-slate-300">—</span></td>
               </tr>
 
+              {/* Portarias */}
+              <tr className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => router.push('/portarias')}>
+                <td className="px-8 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                      <Files size={15} />
+                    </div>
+                    <span className="text-[13px] font-bold text-slate-800">Portarias</span>
+                  </div>
+                </td>
+                <td className="px-6 py-4 text-center text-[15px] font-black text-slate-900">
+                  {isLoading ? '–' : stats?.portarias.total ?? 0}
+                </td>
+                <td className="px-6 py-4 text-center">
+                  <span className="text-[13px] font-black text-emerald-600">{isLoading ? '–' : stats?.portarias.publicado ?? 0}</span>
+                </td>
+                <td className="px-6 py-4 text-center">
+                  <span className="text-[13px] font-black text-amber-600">{isLoading ? '–' : stats?.portarias.rascunho ?? 0}</span>
+                </td>
+                <td className="px-6 py-4 text-center">
+                  <span className="text-[13px] font-bold text-slate-400">{isLoading ? '–' : stats?.portarias.arquivado ?? 0}</span>
+                </td>
+                <td className="px-6 py-4 text-center">
+                  {!isLoading && stats && stats.portarias.total > 0 ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-20 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-emerald-500 transition-all"
+                          style={{ width: `${Math.round((stats.portarias.publicado / stats.portarias.total) * 100)}%` }}
+                        />
+                      </div>
+                      <span className="text-[11px] font-bold text-slate-500">
+                        {Math.round((stats.portarias.publicado / stats.portarias.total) * 100)}%
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-[11px] text-slate-300">—</span>
+                  )}
+                </td>
+              </tr>
+
+              {/* Decretos */}
+              <tr className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => router.push('/decretos')}>
+                <td className="px-8 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+                      <Building2 size={15} />
+                    </div>
+                    <span className="text-[13px] font-bold text-slate-800">Decretos</span>
+                  </div>
+                </td>
+                <td className="px-6 py-4 text-center text-[15px] font-black text-slate-900">
+                  {isLoading ? '–' : stats?.decretos.total ?? 0}
+                </td>
+                <td className="px-6 py-4 text-center">
+                  <span className="text-[13px] font-black text-emerald-600">{isLoading ? '–' : stats?.decretos.publicado ?? 0}</span>
+                </td>
+                <td className="px-6 py-4 text-center">
+                  <span className="text-[13px] font-black text-amber-600">{isLoading ? '–' : stats?.decretos.rascunho ?? 0}</span>
+                </td>
+                <td className="px-6 py-4 text-center">
+                  <span className="text-[13px] font-bold text-slate-400">{isLoading ? '–' : stats?.decretos.arquivado ?? 0}</span>
+                </td>
+                <td className="px-6 py-4 text-center">
+                  {!isLoading && stats && stats.decretos.total > 0 ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-20 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-emerald-500 transition-all"
+                          style={{ width: `${Math.round((stats.decretos.publicado / stats.decretos.total) * 100)}%` }}
+                        />
+                      </div>
+                      <span className="text-[11px] font-bold text-slate-500">
+                        {Math.round((stats.decretos.publicado / stats.decretos.total) * 100)}%
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-[11px] text-slate-300">—</span>
+                  )}
+                </td>
+              </tr>
+
               {/* Linha de Totais */}
               {!isLoading && stats && (
                 <tr className="bg-slate-50 border-t-2 border-slate-200">
@@ -343,16 +429,16 @@ export default function DashboardPage() {
                     <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Total Geral</span>
                   </td>
                   <td className="px-6 py-3 text-center text-[14px] font-black text-slate-900">
-                    {(stats.noticias.total) + (stats.lrf.total) + (stats.secretarias.total)}
+                    {(stats.noticias.total) + (stats.lrf.total) + (stats.secretarias.total) + (stats.portarias.total) + (stats.decretos.total)}
                   </td>
                   <td className="px-6 py-3 text-center text-[13px] font-black text-emerald-600">
-                    {(stats.noticias.publicado) + (stats.lrf.publicado)}
+                    {(stats.noticias.publicado) + (stats.lrf.publicado) + (stats.portarias.publicado) + (stats.decretos.publicado)}
                   </td>
                   <td className="px-6 py-3 text-center text-[13px] font-black text-amber-600">
-                    {(stats.noticias.rascunho) + (stats.lrf.rascunho)}
+                    {(stats.noticias.rascunho) + (stats.lrf.rascunho) + (stats.portarias.rascunho) + (stats.decretos.rascunho)}
                   </td>
                   <td className="px-6 py-3 text-center text-[13px] font-bold text-slate-400">
-                    {(stats.noticias.arquivado) + (stats.lrf.arquivado)}
+                    {(stats.noticias.arquivado) + (stats.lrf.arquivado) + (stats.portarias.arquivado) + (stats.decretos.arquivado)}
                   </td>
                   <td className="px-6 py-3" />
                 </tr>

@@ -91,11 +91,16 @@ async function scrapeDetail(urlBase, detailUrl) {
         nome_secretaria = $('h2').not('footer h2').first().text().trim();
     }
 
-    // Foto do gestor: primeiro img dentro do card do secretário
+    // Foto do gestor: o HTML dos portais tem a foto dentro de .circle-image
+    // Estrutura: <div class="circle-image circle-image-center"><a><img src="/imagens/3903.jpg"></a></div>
     let foto_url = null;
-    const imgSrc = $('img[src*="gestor"], img[src*="foto"], img[src*="secretari"]').first().attr('src')
-        || $('img[class*="rounded"], img[class*="perfil"]').first().attr('src')
-        || $('img').not('[src*="logo"], [src*="icon"], [src*="banner"]').first().attr('src');
+    const imgSrc = $('.circle-image img, .circle-image-center img').first().attr('src')
+        // Fallback 1: img com src contendo o padrão /imagens/ (específico deste tipo de portal)
+        || $('img[src*="/imagens/"]').first().attr('src')
+        // Fallback 2: img com palavras-chave no src
+        || $('img[src*="gestor"], img[src*="foto"], img[src*="secretari"]').first().attr('src')
+        // Fallback 3: img com classes de perfil
+        || $('img[class*="rounded"], img[class*="perfil"]').first().attr('src');
     if (imgSrc) {
         foto_url = imgSrc.startsWith('http') ? imgSrc : `${urlBase}${imgSrc.startsWith('/') ? '' : '/'}${imgSrc}`;
     }

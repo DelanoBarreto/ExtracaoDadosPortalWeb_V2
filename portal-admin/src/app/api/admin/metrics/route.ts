@@ -63,11 +63,29 @@ function buildMetricsFromRows(rows: { modulo: string; status: string; quantidade
     secretarias: {
       total: get('secretarias', 'total'),
     },
+    portarias: {
+      total: get('portarias', 'total'),
+      publicado: get('portarias', 'publicado'),
+      rascunho: get('portarias', 'rascunho'),
+      arquivado: get('portarias', 'arquivado'),
+    },
+    decretos: {
+      total: get('decretos', 'total'),
+      publicado: get('decretos', 'publicado'),
+      rascunho: get('decretos', 'rascunho'),
+      arquivado: get('decretos', 'arquivado'),
+    },
   };
 }
 
 async function countDirectly(municipio_id: string) {
-  const [nTotal, nPub, nRas, nArq, lTotal, lPub, lRas, lArq, sTotal] = await Promise.all([
+  const [
+    nTotal, nPub, nRas, nArq,
+    lTotal, lPub, lRas, lArq,
+    sTotal,
+    pTotal, pPub, pRas, pArq,
+    dTotal, dPub, dRas, dArq
+  ] = await Promise.all([
     // Notícias
     supabaseAdmin.from('tab_noticias').select('id', { count: 'exact', head: true }).eq('municipio_id', municipio_id),
     supabaseAdmin.from('tab_noticias').select('id', { count: 'exact', head: true }).eq('municipio_id', municipio_id).in('status', ['publicado', 'published']),
@@ -80,6 +98,16 @@ async function countDirectly(municipio_id: string) {
     supabaseAdmin.from('tab_lrf').select('id', { count: 'exact', head: true }).eq('municipio_id', municipio_id).in('status', ['arquivado', 'archived']),
     // Secretarias
     supabaseAdmin.from('tab_secretarias').select('id', { count: 'exact', head: true }).eq('municipio_id', municipio_id),
+    // Portarias
+    supabaseAdmin.from('tab_portarias').select('id', { count: 'exact', head: true }).eq('municipio_id', municipio_id),
+    supabaseAdmin.from('tab_portarias').select('id', { count: 'exact', head: true }).eq('municipio_id', municipio_id).in('status', ['publicado', 'published']),
+    supabaseAdmin.from('tab_portarias').select('id', { count: 'exact', head: true }).eq('municipio_id', municipio_id).or('status.is.null,status.in.(rascunho,draft)'),
+    supabaseAdmin.from('tab_portarias').select('id', { count: 'exact', head: true }).eq('municipio_id', municipio_id).in('status', ['arquivado', 'archived']),
+    // Decretos
+    supabaseAdmin.from('tab_decretos').select('id', { count: 'exact', head: true }).eq('municipio_id', municipio_id),
+    supabaseAdmin.from('tab_decretos').select('id', { count: 'exact', head: true }).eq('municipio_id', municipio_id).in('status', ['publicado', 'published']),
+    supabaseAdmin.from('tab_decretos').select('id', { count: 'exact', head: true }).eq('municipio_id', municipio_id).or('status.is.null,status.in.(rascunho,draft)'),
+    supabaseAdmin.from('tab_decretos').select('id', { count: 'exact', head: true }).eq('municipio_id', municipio_id).in('status', ['arquivado', 'archived']),
   ]);
 
   return {
@@ -97,6 +125,18 @@ async function countDirectly(municipio_id: string) {
     },
     secretarias: {
       total: sTotal.count ?? 0,
+    },
+    portarias: {
+      total:     pTotal.count ?? 0,
+      publicado: pPub.count ?? 0,
+      rascunho:  pRas.count ?? 0,
+      arquivado: pArq.count ?? 0,
+    },
+    decretos: {
+      total:     dTotal.count ?? 0,
+      publicado: dPub.count ?? 0,
+      rascunho:  dRas.count ?? 0,
+      arquivado: dArq.count ?? 0,
     },
   };
 }

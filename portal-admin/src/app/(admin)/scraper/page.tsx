@@ -304,6 +304,7 @@ export default function ScraperPage() {
                   <option value="secretarias">Secretarias</option>
                   <option value="gestores">Gestores Municipais</option>
                   <option value="portarias">Portarias</option>
+                  <option value="decretos">Decretos</option>
                 </select>
                 <ChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               </div>
@@ -406,6 +407,7 @@ export default function ScraperPage() {
                     <option value="secretarias">Secretarias</option>
                     <option value="gestores">Gestores Municipais</option>
                     <option value="portarias">Portarias</option>
+                    <option value="decretos">Decretos</option>
                   </select>
                   <ChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 </div>

@@ -204,7 +204,7 @@ async function rasparPortarias() {
             detalhamento: info.detalhamento,
             arquivo_url: novaArquivoUrl,
             url_original: itemUrl,
-            status: 'publicado' // Portarias raspadas já entram como publicadas por padrão
+            status: 'rascunho' // Portarias raspadas entram como rascunho por padrão (1º momento)
           });
 
         if (!insertError) {
