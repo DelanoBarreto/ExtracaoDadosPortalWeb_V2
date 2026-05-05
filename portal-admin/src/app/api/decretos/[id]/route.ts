@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const { data, error } = await supabaseAdmin
       .from('tab_decretos')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (error) throw error;
@@ -16,14 +17,15 @@ export async function GET(request: Request, { params }: { params: { id: string }
   }
 }
 
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const body = await request.json();
 
     const { data, error } = await supabaseAdmin
       .from('tab_decretos')
       .update(body)
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single();
 
@@ -34,13 +36,14 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     // 1. Opcional: Buscar registro primeiro para apagar PDF no Storage
     const { data: record } = await supabaseAdmin
       .from('tab_decretos')
       .select('arquivo_url')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (record?.arquivo_url) {
@@ -57,7 +60,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     const { error } = await supabaseAdmin
       .from('tab_decretos')
       .delete()
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (error) throw error;
     return NextResponse.json({ success: true });

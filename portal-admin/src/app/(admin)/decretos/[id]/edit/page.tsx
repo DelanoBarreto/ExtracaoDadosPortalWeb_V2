@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
+import { toast } from 'sonner';
 import { useMunicipalityStore } from '@/store/municipality';
 import { useUiStore } from '@/store/ui';
 
@@ -81,8 +82,12 @@ export default function EditDecretoPage() {
       queryClient.removeQueries({ queryKey: ['decreto', id] });
       setIsDirty(false);
       setSidebarLocked(false);
+      toast.success(id === 'new' ? 'Decreto criado com sucesso!' : 'Decreto atualizado com sucesso!');
       router.push('/decretos');
     },
+    onError: (error: any) => {
+      toast.error('Erro ao salvar decreto: ' + (error.response?.data?.error || error.message));
+    }
   });
 
   // Tratar botão de Voltar
@@ -151,7 +156,7 @@ export default function EditDecretoPage() {
 
       handleChange('arquivo_url', data.publicUrl);
     } catch (error: any) {
-      alert("Erro ao enviar arquivo: " + error.message);
+      toast.error("Erro ao enviar arquivo: " + error.message);
     } finally {
       setIsUploading(false);
     }
@@ -159,9 +164,40 @@ export default function EditDecretoPage() {
 
   if (isLoading && id !== 'new') {
     return (
-      <div className="flex flex-col h-full items-center justify-center p-20 gap-4">
-        <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
-        <p className="text-slate-500 font-medium animate-pulse">Carregando decreto...</p>
+      <div className="flex flex-col h-full animate-pulse">
+        <header className="px-8 pt-6 pb-4 bg-white flex items-center justify-between border-b border-slate-200 mb-6 mx-[-32px] mt-[-32px]">
+          <div className="flex items-center gap-4">
+            <div className="w-9 h-9 bg-slate-200 rounded-lg"></div>
+            <div>
+              <div className="h-6 w-48 bg-slate-200 rounded-md mb-2"></div>
+              <div className="h-3 w-32 bg-slate-200 rounded-md"></div>
+            </div>
+          </div>
+        </header>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-20">
+          <div className="lg:col-span-2 space-y-6">
+            <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="h-10 bg-slate-100 rounded-md"></div>
+                <div className="h-10 bg-slate-100 rounded-md"></div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="h-10 bg-slate-100 rounded-md"></div>
+                <div className="h-10 bg-slate-100 rounded-md"></div>
+              </div>
+              <div className="h-32 bg-slate-100 rounded-md"></div>
+            </div>
+          </div>
+          <div className="space-y-6">
+            <div className="bg-white border border-slate-200 rounded-xl p-6">
+              <div className="h-10 bg-slate-100 rounded-md mb-4"></div>
+              <div className="h-4 w-24 bg-slate-100 rounded-md"></div>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-xl p-6">
+              <div className="aspect-[4/3] w-full bg-slate-100 rounded-xl"></div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -288,7 +324,7 @@ export default function EditDecretoPage() {
                   tabIndex={5}
                   value={formData.ementa}
                   onChange={e => handleChange('ementa', e.target.value)}
-                  rows={5}
+                  rows={8}
                   className="w-full bg-white border border-slate-200 rounded-md px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-[#004c99] focus:ring-1 focus:ring-[#004c99] transition-colors resize-none"
                   placeholder="Descreva o conteúdo da ementa do decreto..."
                 />

@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { exec } = require('child_process');
+const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { supabase } = require('./lib/supabase-bot');
@@ -138,9 +138,14 @@ app.post('/api/scrape', async (req, res) => {
     
     isProcessing = true;
 
-    // Passa os parâmetros via CLI para o script
-    const cmd = `node "${scriptPath}" --limit=${limit} --municipio_id=${municipio.id} --url_base="${municipio.url_base}" --municipio_nome="${municipio.nome}"`;
-    currentScrapeProcess = exec(cmd);
+    // Passa os parâmetros de forma segura (Array) sem interpretador Shell
+    currentScrapeProcess = spawn('node', [
+        scriptPath,
+        `--limit=${limit}`,
+        `--municipio_id=${municipio.id}`,
+        `--url_base=${municipio.url_base}`,
+        `--municipio_nome=${municipio.nome}`
+    ]);
     
     currentScrapeProcess.stdout.on('data', (data) => fs.appendFileSync(logFile, data));
     currentScrapeProcess.stderr.on('data', (data) => fs.appendFileSync(logFile, `❌ ERRO: ${data}`));
@@ -223,9 +228,16 @@ app.delete('/api/clear-data', async (req, res) => {
         let table = 'tab_lrf';
         if (modulo === 'noticias') table = 'tab_noticias';
         else if (modulo === 'secretarias') table = 'tab_secretarias';
+        else if (modulo === 'decretos') table = 'tab_decretos';
+        else if (modulo === 'portarias') table = 'tab_portarias';
+        else if (modulo === 'gestores') table = 'tab_gestores';
+        else if (modulo === 'leis') table = 'tab_leis';
         
-        // Supabase storage is case-sensitive, LRF folder is uppercase
-        const folderName = modulo === 'lrf' ? 'LRF' : modulo;
+        // Supabase storage is case-sensitive, LRF and PCG folders are uppercase
+        let folderName = modulo;
+        if (modulo === 'lrf') folderName = 'LRF';
+        if (modulo === 'pcg') folderName = 'PCG';
+        
         const folderPath = `${municipio_nome}/${folderName}`;
         const bucket = 'arquivos_municipais';
 
@@ -253,10 +265,18 @@ app.delete('/api/clear-data', async (req, res) => {
         }
 
         // 2. Limpar Banco de Dados
-        const { error: dbError } = await supabase
-            .from(table)
-            .delete()
-            .eq('municipio_id', municipio_id);
+        let query = supabase.from(table).delete().eq('municipio_id', municipio_id);
+
+        // Se a tabela for tab_lrf, PCG e LRF compartilham a tabela.
+        if (table === 'tab_lrf') {
+            if (modulo === 'pcg') {
+                query = query.eq('tipo', 'PCG');
+            } else if (modulo === 'lrf') {
+                query = query.neq('tipo', 'PCG');
+            }
+        }
+
+        const { error: dbError } = await query;
 
         if (dbError) throw dbError;
 

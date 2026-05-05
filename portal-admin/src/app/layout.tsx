@@ -8,6 +8,8 @@ export const metadata: Metadata = {
   description: "Gestão Pública de Alta Performance — Painel Administrativo",
 };
 
+import { Toaster } from 'sonner';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -26,6 +28,7 @@ export default function RootLayout({
       <body className="antialiased">
         <Providers>
           {children}
+          <Toaster richColors position="top-right" />
         </Providers>
       </body>
     </html>

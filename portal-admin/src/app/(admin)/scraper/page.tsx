@@ -220,7 +220,10 @@ export default function ScraperPage() {
     // Invalida o cache antes de navegar para garantir dados frescos
     qc.invalidateQueries({ queryKey: [module] });
     qc.invalidateQueries({ queryKey: [`${module}-counts`] });
-    router.push(`/${module}`);
+
+    // A interface do PCG fica dentro da LRF
+    const targetRoute = module === 'pcg' ? 'lrf' : module;
+    router.push(`/${targetRoute}`);
   };
 
   const handleCopyLogs = async () => {
