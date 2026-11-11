@@ -18,6 +18,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1166.0",
     "@supabase/supabase-js": "^2.103.2",
     "axios": "^1.15.0",
     "cheerio": "^1.2.0",

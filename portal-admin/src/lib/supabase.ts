@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
+import { SUPABASE_DB_SCHEMA, SUPABASE_PUBLIC_KEY, SUPABASE_URL } from './supabase-env';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient<any, typeof SUPABASE_DB_SCHEMA>(SUPABASE_URL, SUPABASE_PUBLIC_KEY, {
+  db: { schema: SUPABASE_DB_SCHEMA },
+});

@@ -1,20 +1,23 @@
-const { supabase } = require('./src/lib/supabase-bot');
+const { supabase, assertDestructiveAllowed } = require('../src/lib/supabase-bot');
 
 async function resetNoticias() {
+  assertDestructiveAllowed('scripts/reset-db.js (apaga todas as notícias do schema extracao)');
   console.log('🗑️ Resetando tabela de notícias...');
-  
-  // No Supabase, se não houver um delete sem filtro habilitado nas políticas, 
-  // precisamos de um filtro que pegue tudo.
+
+  // Filtro que sempre é verdadeiro: o Supabase exige filtro em delete.
   const { error } = await supabase
-    .from('tab_noticias')
+    .from('noticias')
     .delete()
-    .neq('titulo', 'LIMPEZA_TOTAL_DO_BANCO'); // Filtro que sempre será verdadeiro se o título não for esse literal
+    .neq('titulo', 'LIMPEZA_TOTAL_DO_BANCO');
 
   if (error) {
     console.error('❌ Erro ao resetar:', error.message);
   } else {
-    console.log('✅ Tabela tab_noticias zerada com sucesso!');
+    console.log('✅ Tabela extracao.noticias zerada com sucesso!');
   }
 }
 
-resetNoticias();
+resetNoticias().catch((e) => {
+  console.error(e.message);
+  process.exit(1);
+});

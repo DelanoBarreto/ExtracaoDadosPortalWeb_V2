@@ -3,6 +3,9 @@ node_modules/
 
 # Variáveis de ambiente (NUNCA subir para o GitHub!)
 .env
+.env.*
+!.env.example
+**/.env.local*
 
 # Logs
 last-run.log

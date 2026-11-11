@@ -1,329 +1,274 @@
+/**
+ * Crawler de notícias (piloto da arquitetura `extracao`).
+ *
+ * Camadas (decisão D7):
+ *  - bruta: HTML da página guardado no R2 + `dados_brutos` no banco;
+ *  - preparação: linha em `extracao.noticias` com situacao = 'a_revisar';
+ *  - lacunas: `campos_pendentes` e `alertas` dizem o que o PortalGov ainda precisa.
+ *
+ * Uso:
+ *   node crawlers/raspar-noticias-v2.js --org=aracati --limit=20
+ *   node crawlers/raspar-noticias-v2.js --org=aracati --limit=0          (ilimitado)
+ *   node crawlers/raspar-noticias-v2.js --org=aracati --execucao_id=<uuid> (pedido `pendente` do painel)
+ *   node crawlers/raspar-noticias-v2.js --org=aracati --limit=3 --dry     (não grava nada)
+ */
 const axios = require('axios');
 const cheerio = require('cheerio');
-const { supabase } = require('../src/lib/supabase-bot');
-const scraperService = require('../src/services/scraper-service');
+const { dataBrParaIso, extensaoDaUrl, chaveObjeto } = require('../src/lib/extracao-utils');
+const { enviarObjeto } = require('../src/lib/r2');
+const extracao = require('../src/services/extracao-service');
 
-/**
- * Converte data DD/MM/AAAA para ISO
- */
-function formatarData(dataPt) {
-  if (!dataPt) return null;
-  const parts = dataPt.split('/');
-  if (parts.length !== 3) return null;
-  return `${parts[2]}-${parts[1]}-${parts[0]}T12:00:00Z`;
+const MODULO = 'noticias';
+const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36';
+const PAUSA_ENTRE_REQUISICOES_MS = 400; // raspagem educada com o site da prefeitura
+const MAX_PAGINAS = 50;
+
+const esperar = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function lerArgumentos(argv) {
+  const valor = (nome) => argv.find((a) => a.startsWith(`--${nome}=`))?.split('=')[1];
+  const limite = valor('limit') !== undefined ? parseInt(valor('limit'), 10) : 20;
+  if (Number.isNaN(limite) || limite < 0) throw new Error('--limit deve ser um número >= 0 (0 = ilimitado).');
+  return {
+    org: valor('org') || 'aracati',
+    limite,
+    execucaoId: valor('execucao_id'),
+    dry: argv.includes('--dry'),
+  };
 }
 
+async function baixarPagina(url) {
+  const { data } = await axios.get(url, { timeout: 15000, headers: { 'User-Agent': USER_AGENT } });
+  return data;
+}
+
+/**
+ * Lê uma página de notícia e devolve campos estruturados + o HTML bruto.
+ * @param {string} url
+ * @returns {Promise<object|null>} null se a página não pôde ser lida.
+ */
 async function extrairDetalhesNoticia(url) {
   try {
-    const { data: html } = await axios.get(url, { 
-      timeout: 15000,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      }
-    });
-    const $ = cheerio.load(html);
-    
-    // LIMPEZA INICIAL - Remover elementos globais de navegação e ruído
+    const htmlBruto = await baixarPagina(url);
+    const $ = cheerio.load(htmlBruto);
+
+    // Limpeza inicial: navegação e ruído global
     $('header, footer, nav, aside, .sidebar, #sidebar, .breadcrumb, .breadcrumbs, .navigation, .area-avaliacao, #form_aval_informa, .area-comentarios, .links-sociais, .print-download, script, style, .LinkInforma3, .type-link1, .area-mais-lidas, .relacionadas, #speak, #speak_text, [id^="speak"]').remove();
-    
-    // 1. EXTRAÇÃO DE TÍTULO
+
     let titulo = $('.TitleInforma-detalhe').first().text().trim();
     if (!titulo) titulo = $('h1').first().text().trim();
     titulo = titulo.replace(/Qual o seu nível de satisfação.*/gi, '').trim();
 
-    // 2. EXTRAÇÃO DE METADADOS
     let autor = 'Prefeitura';
     let categoria = 'Geral';
     let dataPublicacao = null;
 
-    // Escopo da notícia para evitar pegar ícones do rodapé
     const newsContainer = $('#Noticia, article, .noticia-detalhe').first();
-    
-    // Tenta capturar o container de metadados (FontAwesome ou Bootstrap Icons)
-    // Procuramos especificamente dentro do contexto da notícia
     let metaContainer = newsContainer.find('.fa-user, .bi-person-circle').first().parent();
-    
-    // Se não achou no container específico, tenta no body (fallback)
-    if (!metaContainer.length) {
-        metaContainer = $('.fa-user, .bi-person-circle').first().parent();
-    }
-
+    if (!metaContainer.length) metaContainer = $('.fa-user, .bi-person-circle').first().parent();
     const metaLine = metaContainer.text().replace(/\s+/g, ' ').trim();
-    
-    // Data
+
     const dataMatch = metaLine.match(/(\d{2}\/\d{2}\/\d{4})/);
     if (dataMatch) {
-        dataPublicacao = formatarData(dataMatch[0]);
+      dataPublicacao = dataBrParaIso(dataMatch[0]);
     } else {
-        // Busca data em qualquer lugar da notícia ou body
-        const anyDataMatch = newsContainer.text().match(/(\d{2}\/\d{2}\/\d{4})/) || $('body').text().match(/(\d{2}\/\d{2}\/\d{4})/);
-        if (anyDataMatch) dataPublicacao = formatarData(anyDataMatch[0]);
+      const qualquerData = newsContainer.text().match(/(\d{2}\/\d{2}\/\d{4})/) || $('body').text().match(/(\d{2}\/\d{2}\/\d{4})/);
+      if (qualquerData) dataPublicacao = dataBrParaIso(qualquerData[0]);
     }
 
-    // Autor
     const autorMatch = metaLine.match(/Por\s+(.*?)(?=\s\d{2}\/\d{2}|$|#)/i);
     if (autorMatch) {
-        autor = autorMatch[1].trim();
+      autor = autorMatch[1].trim();
     } else {
-        const bAutor = newsContainer.find('.bi-person-circle, .fa-user').parent().text().match(/Por\s+(.*?)\s+\d{2}\//)?.[1]?.trim();
-        if (bAutor) autor = bAutor;
+      const autorAlternativo = newsContainer.find('.bi-person-circle, .fa-user').parent().text().match(/Por\s+(.*?)\s+\d{2}\//)?.[1]?.trim();
+      if (autorAlternativo) autor = autorAlternativo;
     }
 
-    // Categoria (Default 'Geral' já está setado)
-    // 1. Tenta hashtag no metaLine (incluindo acentos)
     const catMatch = metaLine.match(/#([a-zA-Zà-úÀ-Ú0-9_-]+)/);
     if (catMatch) {
-        categoria = catMatch[1];
-    } 
-    // 2. Se ainda for Geral, tenta ícones de tag dentro da notícia
-    else {
-        const tagText = newsContainer.find('.fa-tag, .bi-tag, .bi-tag-fill').first().parent().text().trim();
-        if (tagText) {
-            categoria = tagText.replace('#', '').trim();
-        }
+      categoria = catMatch[1];
+    } else {
+      const tagText = newsContainer.find('.fa-tag, .bi-tag, .bi-tag-fill').first().parent().text().trim();
+      if (tagText) categoria = tagText.replace('#', '').trim();
     }
-
-    // 3. Fallback final: Selector específico sugerido pelo usuário
     if (categoria === 'Geral' || !categoria) {
-        const specificCat = newsContainer.find('center > span > span:nth-child(3), center > span > span:contains("#")').text().trim();
-        if (specificCat) categoria = specificCat.replace('#', '').trim();
+      const categoriaEspecifica = newsContainer.find('center > span > span:nth-child(3), center > span > span:contains("#")').text().trim();
+      if (categoriaEspecifica) categoria = categoriaEspecifica.replace('#', '').trim();
     }
+    if (!categoria || categoria.trim() === '') categoria = 'Geral';
 
-    // Garante que categoria nunca seja vazio ou nulo (sempre 'Geral' se não achar)
-    if (!categoria || categoria.trim() === '') {
-        categoria = 'Geral';
-    }
+    // Resumo: subtítulo, depois og:description, description e o texto logo após o título
+    let resumo = $('.SubtitleInforma-detalhe').first().text().trim();
+    if (!resumo || resumo.length < 10) resumo = $('meta[property="og:description"]').attr('content') || '';
+    if (!resumo || resumo.length < 10) resumo = $('meta[name="description"]').attr('content') || '';
+    if (!resumo || resumo.length < 10) resumo = $('.TitleInforma-detalhe').first().next('p, div').text().trim();
+    resumo = resumo.replace(/\n/g, ' ').trim();
 
-    // 3. EXTRAÇÃO DE RESUMO E CONTEÚDO
-    // No padrão Assesi, o resumo é o SubtitleInforma-detalhe ou o og:description
-    let resume = $('.SubtitleInforma-detalhe').first().text().trim();
-    
-    if (!resume || resume.length < 10) {
-        resume = $('meta[property="og:description"]').attr('content') || '';
-    }
-
-    if (!resume || resume.length < 10) {
-        resume = $('meta[name="description"]').attr('content') || '';
-    }
-
-    // Se ainda não achou, tenta pegar o texto logo após o título
-    if (!resume || resume.length < 10) {
-        resume = $('.TitleInforma-detalhe').first().next('p, div').text().trim();
-    }
-
-    let coreContent = '';
-    // .p-info é comum no Assesi para o conteúdo real
-    const contentSelectors = ['#Noticia > div:nth-child(3) > div > div > div.p-info', '.p-info', '.TextoInforma-detalhe', '.NoticiaInnerBody', '.noticia-texto', '.entry-content', 'article'];
-    
-    for (const sel of contentSelectors) {
-      const el = $(sel).clone();
-      
-      // REMOÇÃO DE RUÍDO ESPECÍFICO (Sidebar, links relacionados, etc.)
+    // Conteúdo: guarda o HTML (formatação preservada) e o texto plano
+    let conteudoHtml = '';
+    let textoPlano = '';
+    const seletoresConteudo = ['#Noticia > div:nth-child(3) > div > div > div.p-info', '.p-info', '.TextoInforma-detalhe', '.NoticiaInnerBody', '.noticia-texto', '.entry-content', 'article'];
+    for (const seletor of seletoresConteudo) {
+      const el = $(seletor).first().clone();
+      if (!el.length) continue;
       el.find('.LinkInforma3, .type-link1, .sidebar, aside, .area-mais-lidas, .relacionadas, .newsletter, .tags').remove();
-      
-      // Remove elementos de UI, títulos repetidos e metadados dentro do corpo
-      // Removemos speak_text e qualquer div de suporte à acessibilidade que duplique o texto
       el.find('h1, h2, h3, .TitleInforma-detalhe, .SubtitleInforma-detalhe, .links-sociais, .area-avaliacao, .fa-user, .fa-calendar, .fa-eye, #speak, #speak_text, #btn-ouvir, [id^="speak"]').remove();
-      
-      let txt = el.text().trim();
-      
-      // Se o texto começar com o título da notícia, removemos essa repetição
-      if (txt.toLowerCase().startsWith(titulo.toLowerCase())) {
-          txt = txt.substring(titulo.length).trim();
-      }
 
-      // O conteúdo real deve ser substancial. 
-      if (txt.length > 50 && !txt.includes('Início') && txt.length > (resume.length / 2)) {
-        coreContent = txt;
+      let texto = el.text().trim();
+      if (titulo && texto.toLowerCase().startsWith(titulo.toLowerCase())) texto = texto.substring(titulo.length).trim();
+
+      if (texto.length > 50 && !texto.includes('Início') && texto.length > resumo.length / 2) {
+        textoPlano = texto.replace(/(\n\s*){2,}/g, '\n\n').trim();
+        conteudoHtml = (el.html() || '').trim();
         break;
       }
     }
 
-    // Caso de notícia sem descrição detalhada (como o exemplo #84)
-    if (!coreContent || coreContent.length < 50) {
-        coreContent = 'Sem descrição detalhada.';
-    }
-
-    coreContent = coreContent.replace(/(\n\s*){2,}/g, '\n\n').trim();
-    
-    // Limpeza final de ruído de navegação no início do conteúdo
-    coreContent = coreContent.replace(/^(Início|Notícias|NOTÍCIAS|Detalhe)\s+\d{2}[-/][A-Z]{3}[-/]\d{4}\s+/gi, '');
-    coreContent = coreContent.replace(/^(Início|Notícias|NOTÍCIAS|Detalhe)\s+/gi, '');
-
-    resume = resume.replace(/\n/g, ' ').trim();
-
-    return { 
-        titulo, 
-        dataPublicacao, 
-        conteudo: coreContent.substring(0, 5000),
-        resumo: resume.substring(0, 500),
-        autor,
-        categoria,
-        acessos: 0 
-    };
+    return { titulo, dataPublicacao, autor, categoria, resumo: resumo.substring(0, 1000), conteudoHtml, textoPlano, metaLine, htmlBruto };
   } catch (err) {
-    console.error(`⚠️ Erro ao detalhar ${url}:`, err.message);
+    console.error(`⚠️ Erro ao detalhar ${url}: ${err.message}`);
     return null;
   }
 }
 
-async function rasparNoticiasV2() {
-  const args = process.argv.slice(2);
-  const limitArg = args.find(a => a.startsWith('--limit='));
-  const limit = limitArg ? parseInt(limitArg.split('=')[1], 10) : 20;
+async function baixarImagem(urlImagem) {
+  const resposta = await axios.get(urlImagem, { responseType: 'arraybuffer', timeout: 20000, headers: { 'User-Agent': USER_AGENT } });
+  return { buffer: Buffer.from(resposta.data), contentType: resposta.headers['content-type'] || 'application/octet-stream' };
+}
 
-  // Novos argumentos para tornar o scraper dinâmico
-  const idArg = args.find(a => a.startsWith('--municipio_id='));
-  const urlArg = args.find(a => a.startsWith('--url_base='));
-  const nomeArg = args.find(a => a.startsWith('--municipio_nome='));
+/**
+ * Processa uma notícia: grava HTML bruto e imagem no R2 e a linha em extracao.noticias.
+ * @returns {Promise<'criada'|'duplicada'|'erro'>}
+ */
+async function processarNoticia({ fonte, execucaoId, item, dry }) {
+  const detalhes = await extrairDetalhesNoticia(item.url);
+  if (!detalhes || !detalhes.titulo) return 'erro';
 
-  let municipioId = idArg ? idArg.split('=')[1] : null;
-  let urlBase = urlArg ? urlArg.split('=')[1].replace(/"/g, '') : null;
-  // Normaliza URL base para remover barra final se existir (ajuda na classe URL)
-  if (urlBase) urlBase = urlBase.replace(/\/$/, '');
-  let municipioNome = nomeArg ? nomeArg.split('=')[1].replace(/"/g, '') : 'Desconhecido';
+  const alertas = [];
+  if (!detalhes.dataPublicacao) alertas.push({ campo: 'data_publicacao', aviso: 'data não encontrada na página' });
+  if (!detalhes.conteudoHtml) alertas.push({ campo: 'conteudo_html', aviso: 'corpo da notícia não identificado' });
+  if (!detalhes.resumo) alertas.push({ campo: 'resumo', aviso: 'resumo não encontrado' });
 
-  // Fallback para Aracati se nada for passado (compatibilidade)
-  if (!municipioId || !urlBase) {
-    console.log('⚠️ Parâmetros de município não fornecidos. Buscando fallback: Aracati...');
-    const { data: fallback } = await supabase
-      .from('tab_municipios')
-      .select('*')
-      .eq('nome', 'Aracati')
-      .single();
-    
-    if (fallback) {
-      municipioId = fallback.id;
-      urlBase = fallback.url_base.replace(/\/$/, '');
-      municipioNome = fallback.nome;
-    } else {
-      console.error('❌ Falha crítica: Nenhum município identificado para raspagem.');
-      return;
+  console.log(`      📝 ${detalhes.titulo} | 📅 ${detalhes.dataPublicacao ?? 's/ data'} | 👤 ${detalhes.autor} | 🏷️ ${detalhes.categoria}`);
+  if (dry) return 'criada';
+
+  const chaveHtml = chaveObjeto({ orgSlug: fonte.slug, modulo: MODULO, origem: item.url, extensao: '.html', subpasta: 'raw' });
+  await enviarObjeto(chaveHtml, detalhes.htmlBruto, 'text/html; charset=utf-8');
+
+  let imagemKey = null;
+  if (item.imagemOriginal) {
+    try {
+      const { buffer, contentType } = await baixarImagem(item.imagemOriginal);
+      imagemKey = chaveObjeto({ orgSlug: fonte.slug, modulo: MODULO, origem: item.imagemOriginal, extensao: extensaoDaUrl(item.imagemOriginal, '.jpg') });
+      await enviarObjeto(imagemKey, buffer, contentType);
+    } catch (err) {
+      alertas.push({ campo: 'imagem_key', aviso: `falha ao baixar a imagem: ${err.message}` });
     }
+  } else {
+    alertas.push({ campo: 'imagem_key', aviso: 'notícia sem imagem na listagem' });
   }
 
-  console.log(`🚀 Iniciando NOTICIAS | Município: ${municipioNome} | Limite: ${limit === 0 ? 'ILIMITADO' : limit}...`);
+  return extracao.salvarNoticia({
+    organizacao_id: fonte.organizacao_id,
+    execucao_id: execucaoId,
+    titulo: detalhes.titulo,
+    resumo: detalhes.resumo || null,
+    conteudo_html: detalhes.conteudoHtml || null,
+    imagem_key: imagemKey,
+    autor: detalhes.autor,
+    categoria: detalhes.categoria,
+    data_publicacao: detalhes.dataPublicacao,
+    url_original: item.url,
+    campos_pendentes: ['categoria_id', 'orgao_id'],
+    alertas,
+    dados_brutos: {
+      fonte_url: item.url,
+      html_key: chaveHtml,
+      imagem_original: item.imagemOriginal,
+      linha_de_metadados: detalhes.metaLine,
+      categoria_bruta: detalhes.categoria,
+      texto_plano: detalhes.textoPlano.slice(0, 20000),
+    },
+  });
+}
 
-  const urlLista = `${urlBase}/informa.php`;
+async function rasparNoticias() {
+  const { org, limite, execucaoId: execucaoPedida, dry } = lerArgumentos(process.argv.slice(2));
+  const fonte = await extracao.obterFonte(org);
+  const urlBase = fonte.url_base.replace(/\/$/, '');
+  const limiteEfetivo = limite === 0 ? Infinity : limite;
+
+  console.log(`🚀 NOTÍCIAS | ${fonte.nome} (${fonte.slug}) | limite: ${limite === 0 ? 'ilimitado' : limite}${dry ? ' | DRY-RUN (não grava)' : ''}`);
+
+  const execucaoId = dry
+    ? null
+    : await extracao.iniciarExecucao({ organizacaoId: fonte.organizacao_id, modulo: MODULO, parametros: { limite }, execucaoId: execucaoPedida });
+
+  const totais = { lidos: 0, novos: 0, erros: 0 };
+  let falhaFatal = null;
 
   try {
-    const { data: html } = await axios.get(urlLista, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      }
-    });
-    const $ = cheerio.load(html);
-    
-    const linksProcessados = new Set();
-    let itemsSaved = 0;
-    const effectiveLimit = limit === 0 ? Infinity : limit;
-    let currentPage = 0;
-    let hasMorePages = true;
+    const urlLista = `${urlBase}/informa.php`;
+    const vistos = new Set();
+    let pagina = 0;
 
-    while (itemsSaved < effectiveLimit && hasMorePages) {
-      const urlComPagina = currentPage === 0 ? urlLista : `${urlLista}?pagina=${currentPage}`;
-      console.log(`\n📄 [PÁGINA ${currentPage + 1}] Lendo links de: ${urlComPagina}`);
-      
-      const { data: pageHtml } = await axios.get(urlComPagina, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-      });
-      const $page = cheerio.load(pageHtml);
-      
-      const pageItems = [];
-      $page('a[href*="/informa/"]').each((i, el) => {
-        const link = $page(el).attr('href');
-        const img = $page(el).find('img').attr('src');
-        
-        // Uso da classe URL para evitar barras duplas e erros de caminho relativo
-        let urlCompleta;
-        try {
-          urlCompleta = new URL(link, urlBase).href;
-        } catch (e) {
-          urlCompleta = link.startsWith('http') ? link : `${urlBase}${link.startsWith('/') ? '' : '/'}${link}`;
-        }
+    while (totais.novos < limiteEfetivo && pagina < MAX_PAGINAS) {
+      const urlPagina = pagina === 0 ? urlLista : `${urlLista}?pagina=${pagina}`;
+      console.log(`\n📄 [PÁGINA ${pagina + 1}] ${urlPagina}`);
+      const $ = cheerio.load(await baixarPagina(urlPagina));
 
-        if (!linksProcessados.has(urlCompleta)) {
-          linksProcessados.add(urlCompleta);
-          pageItems.push({
-            url: urlCompleta,
-            imagemOriginal: img ? (img.startsWith('http') ? img : `${urlBase}/${img.replace(/^\//, '')}`) : null
-          });
-        }
+      const itens = [];
+      $('a[href*="/informa/"]').each((_, el) => {
+        const link = $(el).attr('href');
+        const img = $(el).find('img').attr('src');
+        let url;
+        try { url = new URL(link, urlBase).href; } catch { return; }
+        if (vistos.has(url)) return;
+        vistos.add(url);
+        itens.push({ url, imagemOriginal: img ? new URL(img, urlBase).href : null });
       });
 
-      if (pageItems.length === 0) {
-        console.log('   🏁 Nenhuma nova notícia encontrada nesta página. Fim da lista.');
-        hasMorePages = false;
-        break;
-      }
+      if (itens.length === 0) { console.log('   🏁 Fim da lista.'); break; }
 
-      console.log(`   🔎 [${itemsSaved + 1}/${effectiveLimit}] Encontrados ${pageItems.length} links na página. Verificando novidades...`);
+      for (const item of itens) {
+        if (totais.novos >= limiteEfetivo) break;
+        totais.lidos++;
 
-      for (const item of pageItems) {
-        if (itemsSaved >= effectiveLimit) break;
-
-        // Verificação preventiva robusta
-        const { data: existente } = await supabase
-          .from('tab_noticias')
-          .select('id')
-          .eq('url_original', item.url)
-          .maybeSingle();
-
-        if (existente) {
-          console.log(`   ⏭️ [${itemsSaved + 1}/${effectiveLimit}] Já cadastrado. Pulando.`);
+        if (!dry && (await extracao.noticiaJaExiste(fonte.organizacao_id, item.url))) {
+          console.log('   ⏭️ já preparada, pulando');
           continue;
         }
 
-        console.log(`   ✨ [${itemsSaved + 1}/${effectiveLimit}] NOVO ITEM DETECTADO: ${item.url}`);
-        const detalhes = await extrairDetalhesNoticia(item.url);
-        if (!detalhes) continue;
-
-        console.log(`      📝 Título: ${detalhes.titulo}`);
-        console.log(`      📅 Data: ${detalhes.dataPublicacao}`);
-        console.log(`      👤 Autor: ${detalhes.autor}`);
-        console.log(`      👁️  Acessos: ${detalhes.acessos}`);
-
-        let novaImagemUrl = null;
-        if (item.imagemOriginal) {
-          const folderPath = `${municipioNome}/noticias`;
-          novaImagemUrl = await scraperService.uploadMedia(item.imagemOriginal, 'arquivos_municipais', folderPath);
+        console.log(`   ✨ ${item.url}`);
+        try {
+          const resultado = await processarNoticia({ fonte, execucaoId, item, dry });
+          if (resultado === 'criada') { totais.novos++; console.log('   ✅ preparada (a_revisar)'); }
+          else if (resultado === 'erro') totais.erros++;
+        } catch (err) {
+          totais.erros++;
+          console.error(`   ❌ ${item.url}: ${err.message}`);
         }
-
-        const sucesso = await scraperService.salvarNoticia({
-          municipio_id: municipioId,
-          titulo: detalhes.titulo,
-          url_original: item.url,
-          imagem_url: novaImagemUrl,
-          conteudo: detalhes.conteudo,
-          resumo: detalhes.resumo,
-          data_publicacao: detalhes.dataPublicacao,
-          autor: detalhes.autor,
-          categoria: detalhes.categoria,
-          acessos: detalhes.acessos,
-          status: 'rascunho'
-        });
-
-        if (sucesso) {
-          console.log('   ✅ Salvo no Supabase!');
-          itemsSaved++;
-        }
+        await esperar(PAUSA_ENTRE_REQUISICOES_MS);
       }
-
-      currentPage++;
-      // Segurança: evitar loops infinitos (máximo 50 páginas por execução)
-      if (currentPage >= 50 && effectiveLimit !== Infinity) {
-          console.log('   ⚠️ Teto de 50 páginas atingido. Encerrando para segurança.');
-          hasMorePages = false;
-      }
+      pagina++;
     }
-
-    console.log(`\n✨ Raspagem concluída! Total de novos itens adicionados: ${itemsSaved}`);
-
   } catch (err) {
-    console.error('💥 Erro fatal:', err.message);
+    falhaFatal = err;
+    console.error(`💥 Erro fatal: ${err.message}`);
   }
+
+  if (execucaoId) {
+    await extracao.finalizarExecucao(execucaoId, {
+      status: falhaFatal ? 'falhou' : 'concluida',
+      ...totais,
+      erroResumo: falhaFatal?.message,
+    });
+  }
+  console.log(`\n✨ Fim. Lidos: ${totais.lidos} | Novos: ${totais.novos} | Erros: ${totais.erros}`);
+  if (falhaFatal) process.exitCode = 1;
 }
 
-rasparNoticiasV2();
+rasparNoticias().catch((err) => {
+  console.error(`💥 ${err.message}`);
+  process.exit(1);
+});

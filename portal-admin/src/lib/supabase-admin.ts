@@ -1,12 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+import { SUPABASE_DB_SCHEMA, SUPABASE_URL, getSupabaseSecretKey } from './supabase-env';
 
 // Cliente administrativo para operações seguras no backend (API Routes)
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+export const supabaseAdmin = createClient<any, typeof SUPABASE_DB_SCHEMA>(SUPABASE_URL, getSupabaseSecretKey(), {
+  db: { schema: SUPABASE_DB_SCHEMA },
   auth: {
     autoRefreshToken: false,
-    persistSession: false
-  }
+    persistSession: false,
+  },
 });

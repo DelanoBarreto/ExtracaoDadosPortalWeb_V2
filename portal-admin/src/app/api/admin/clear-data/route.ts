@@ -2,6 +2,15 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export async function DELETE(request: Request) {
+  // Rota desativada: o banco é o PortalGov-Producao (compartilhado) e a limpeza ainda usa o
+  // modelo antigo (tab_*, municipio_id, Storage). Será reescrita com sessão de superadmin.
+  if (process.env.ALLOW_DESTRUCTIVE_ROUTES !== 'true') {
+    return NextResponse.json(
+      { error: { code: 'DISABLED', message: 'Limpeza de dados desativada neste ambiente.' } },
+      { status: 403 }
+    );
+  }
+
   const { searchParams } = new URL(request.url);
   const municipio_id = searchParams.get('municipio_id');
   const modulo = searchParams.get('modulo');

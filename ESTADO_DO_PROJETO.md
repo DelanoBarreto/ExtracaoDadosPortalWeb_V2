@@ -14,7 +14,7 @@
 
 **Depende do responsável:**
 1. Dar `git push` do PortalGov na VPS e informar o repositório/pasta (ou outra forma de copiar). É o único bloqueio da matriz.
-2. Informar se a conta Cloudflare está no plano **Workers Paid** (necessário para raspagem de volume: o plano gratuito limita a 50 chamadas externas por execução).
+2. ~~Plano Workers Paid~~ — **respondido:** conta Cloudflare Free, sem assinar agora (sem clientes ainda). A extração roda na VPS/local (D10, D11).
 3. Mais adiante: quais menus do site de Aracati contam como "texto" (prefeitura, serviços, cidade etc.) para entrarem na importação.
 4. Habilitar `extracao` em **Exposed schemas** quando os crawlers estiverem prontos para gravar (seção 4, passo a passo).
 
@@ -35,7 +35,8 @@
 | D7 | **Estratégia do extrator: híbrido em camadas** (ver 2.1) | 2026-11-11 |
 | D8 | **Promoção** para o PortalGov: **só o superadmin**, **por módulo**, disparada no sistema Extração, que chama uma **função do banco do lado do PortalGov** (o dono do destino define as regras de entrada). Nada entra publicado: entra como `draft`/`review` com marca de origem; publicar continua no fluxo normal do PortalGov | 2026-11-11 |
 | D9 | **Raspagem manual** (botão do superadmin por município e módulo), **sem cron**. Botão extra "Comparar com o site" mostra só as diferenças desde a última raspagem | 2026-11-11 |
-| D10 | **Hospedagem de tudo na Cloudflare.** A VPS existe só para facilitar o desenvolvimento pelo celular | 2026-11-11 |
+| D10 | **Hospedagem na Cloudflare para os sistemas de produção (PortalGov etc.).** A VPS existe para facilitar o desenvolvimento pelo celular. **Revisado em 2026-11-11:** a conta Cloudflare é **Free** e o responsável **não vai assinar o Workers Paid agora** (ainda não há cliente). Por isso **a ferramenta de extração (painel + crawlers) roda na VPS/máquina local**, não em Workers/Workflows. O R2 (Free) continua sendo o armazenamento de arquivos. Migrar a ferramenta para a Cloudflare só se/quando houver receita para o Workers Paid | 2026-11-11 |
+| D11 | **Crawlers continuam em Node.js** (Axios, Cheerio, Playwright), adaptados para gravar em `extracao.*` + R2. O botão **Raspar** do painel não executa a raspagem: grava um pedido em `extracao.execucoes_raspagem` (status `pendente`) e um **processo worker Node** (VPS/local) pega o pedido e executa. O núcleo do crawler fica em módulos TypeScript simples para poder virar Workflow depois | 2026-11-11 |
 
 ### 2.1 Híbrido em camadas (D7)
 1. **Bruta:** guarda o que o site tem, sem interpretar: HTML, campos soltos em `dados_brutos jsonb`, arquivos no R2. Fonte da verdade, reprocessável sem raspar de novo.
@@ -90,7 +91,13 @@ O Supabase só deixa programas de fora (admin e crawlers via API) conversarem co
 - Acesso a arquivos: rota de API valida sessão e tenant e devolve URL pré-assinada curta (5–15 min) ou faz stream. Upload: só pelo servidor, validando tipo e tamanho.
 - Documentos que o portal público precisa mostrar (LRF, decretos, portarias publicados) não podem depender de bucket público: o `portalgov` serve por rota própria que só entrega objetos de registros publicados (etapa de promoção).
 
-### Arquitetura de execução na Cloudflare (D9, D10), conferida na documentação
+### Por que a extração NÃO roda na Cloudflare por enquanto (plano Free, conferido na documentação em 2026-11-11)
+- Workers Free: **10 ms de CPU por requisição**, **50 chamadas externas (subrequests) por execução**, 100.000 requisições/dia. Next.js com renderização no servidor costuma estourar os 10 ms (a própria documentação diz que SSR geralmente precisa do Workers Paid).
+- Workflows Free: **1.024 passos por instância**, **3.000 passos por dia**, 10 ms de CPU por invocação, retenção de logs de 3 dias. Raspar um site inteiro (milhares de páginas e PDFs) não cabe.
+- Browser Run Free: **10 minutos por dia**, 3 navegadores simultâneos, timeout de 60 s.
+- Conclusão: a raspagem fica em Node na VPS/máquina local (sem esses limites e sem custo). O Workers Paid continua a opção quando houver cliente.
+
+### Arquitetura de execução na Cloudflare (referência para quando houver Workers Paid; hoje NÃO usada) (D9, D10)
 | Necessidade | Recurso | Fato relevante |
 |---|---|---|
 | Raspagem longa | **Workflows** | Cada passo roda sem limite de tempo de relógio; instância pode durar horas/dias; falha refaz só o passo; limite de chamadas externas por instância: 10.000 no pago, 50 no gratuito |
@@ -163,12 +170,12 @@ Regras do projeto (resumo): Lion Lab (`.claude/rules/lion-lab/`): sem Service Ro
 - [ ] **A1.** Receber o código atualizado do PortalGov (VPS → Git → esta máquina). *Depende do responsável.*
 - [ ] **A2.** **Matriz de lacunas (3 lados)** por área: existe no site de Aracati? existe no PortalGov (tabela/tela)? campos que faltam/sobram em cada lado? existe crawler? Incluir **menus de texto** e áreas sem crawler. Só leitura (navegar o site, ler `portalgov`, ler `crawlers/`).
 - [ ] **A3.** Decidir com o responsável, por lacuna: PortalGov ganha o campo / crawler preenche padrão / fica "preencher na revisão".
-- [ ] **A4.** Ajustar o `extracao` (migration nova): `dados_brutos jsonb`, `campos_pendentes text[]`, `alertas jsonb` nas tabelas; criar tabelas dos módulos que faltam (páginas de texto etc.). Tabelas vazias: custo baixo.
+- [~] **A4 — parcialmente feito:** migration `20261111_003_extracao_camadas_e_fontes.sql` APLICADA (`dados_brutos`, `campos_pendentes`, `alertas` nas 6 tabelas; status `pendente` + `parametros` em `execucoes_raspagem`; tabela `extracao.fontes_municipio` com a URL de Aracati). **Falta** criar as tabelas dos módulos novos (páginas de texto etc.) após a matriz. Texto original: Ajustar o `extracao` (migration nova): `dados_brutos jsonb`, `campos_pendentes text[]`, `alertas jsonb` nas tabelas; criar tabelas dos módulos que faltam (páginas de texto etc.). Tabelas vazias: custo baixo.
 
 ### Bloco B — Crawlers e arquivos
 - [ ] **B1.** Habilitar `extracao` em Exposed schemas (painel; seção 4). *Depende do responsável.*
-- [ ] **B2.** Apontar `.env.local`/clientes para o Producao com `db: { schema: 'extracao' }`; levar variáveis R2 ao servidor (nunca `NEXT_PUBLIC_*`).
-- [ ] **B3.** Reescrever/adaptar crawlers em TypeScript como **Workflows na Cloudflare**; gravar em `extracao.*` com `organizacao_id`, registrar `execucoes_raspagem`, subir arquivos ao R2 `extracao-staging`, gravar `*_key`. Piloto: **notícias**; depois as 5 áreas atuais; depois as áreas novas da matriz.
+- [~] **B2 — FEITO em 2026-11-11 (etapas 1, 2 e 4):** `.env` (raiz) e `portal-admin/.env.local` agora apontam para o **Producao** (chaves copiadas de `docs/.env.localteste`, vindas do sistema PortalGov; backups ignorados em `.env.dados.bak` e `portal-admin/.env.local.dados.bak`); `SUPABASE_DB_SCHEMA=extracao`. Criado `portal-admin/src/lib/supabase-env.ts` (config única, aceita nomes novos e legados das chaves) e os 3 clientes do Next + `src/lib/supabase-bot.js` usam schema `extracao`. Travas: `assertDestructiveAllowed` em `supabase-bot.js` (exige `ALLOW_DESTRUCTIVE=1` e fora de produção), `scripts/reset-db.js` reescrito com a trava, rota `api/admin/clear-data` desativada (exige `ALLOW_DESTRUCTIVE_ROUTES=true`). Verificado: chave secreta lê `portalgov.orgaos` (85 linhas); `extracao.*` responde 406 = **falta Exposed schemas (B1)**. `tsc` do portal-admin: 7 erros, **todos já existiam antes** (nenhum novo). **Falta:** etapa 3 (reescrever a camada de dados `tab_*`→`extracao.*`, módulo a módulo, piloto notícias), etapa 5 (B1) e etapa 6 (usuário superadmin com papel `extracao`). Até a etapa 3, as telas/rotas que usam `tab_*` **não funcionam** (o banco antigo está pausado de qualquer forma). Registro original do levantamento: Apontar tudo para o Producao com `db: { schema: 'extracao' }`; levar variáveis R2 ao servidor (nunca `NEXT_PUBLIC_*`). **Levantamento (2026-11-11):** `.env` e `portal-admin/.env.local` apontam para o Dados (`fppb...`, pausado) e as chaves service_role de lá não servem no Producao. ~89 arquivos usam Supabase; o `portal-admin` usa `tab_*` + `municipio_id` (muitas rotas aceitam `municipio_id` pela URL, contra a regra Lion Lab 03) e Storage `arquivos_municipais`. **Trocar só o `.env` quebra o app.** Ordem segura: (1) neutralizar o que apaga dados (`scripts/reset-db.js`, `api/admin/clear-data`, `scripts/alter-db.js`) antes de qualquer apontamento ao Producao; (2) módulo único de cliente Supabase com schema `extracao`; (3) reescrever a camada de dados módulo a módulo (`tab_X`→`extracao.X`, `municipio_id`→`organizacao_id` vindo da sessão, `status`→`situacao`, Storage→R2), piloto notícias; (4) chaves do Producao (anon + service_role) no `.env.local` pelo responsável; (5) Exposed schemas (B1); (6) usuário superadmin com papel `extracao` em `plataforma.usuarios_sistema`.
+- [~] **B3 — PILOTO NOTÍCIAS FEITO E VERIFICADO (2026-11-11).** Crawler `crawlers/raspar-noticias-v2.js` reescrito (`--org=aracati --limit=N [--execucao_id=] [--dry]`): grava em `extracao.noticias` (`a_revisar`, `dados_brutos`, `campos_pendentes`, `alertas`), HTML bruto + imagem no R2 `extracao-staging` (chaves em `dados_brutos.html_key` e `imagem_key`), registra `execucoes_raspagem`, é idempotente (pula URL já preparada), pausa 400 ms entre páginas, guarda o corpo como HTML (antes era texto cortado em 5000). Novos: `src/lib/extracao-utils.js`, `src/lib/r2.js`, `src/services/extracao-service.js`, `tests/extracao-utils.test.js` (8 testes, `node --test tests/extracao-utils.test.js`). Dependência nova: `@aws-sdk/client-s3` (sem falhas no `npm audit`; as 8 falhas existentes são de axios/ws/etc.). Teste real contra o site de Aracati: 4 notícias preparadas, 4 HTML + 4 imagens confirmados no R2, 2 execuções fechadas. **Faltam:** os outros 5 crawlers (secretarias, gestores, lrf/pcg, portarias, decretos) no mesmo molde; worker que consome pedidos `pendente`; painel. Item original: Adaptar os crawlers Node existentes (D11: worker Node na VPS/local que consome pedidos `pendente` de `execucoes_raspagem`; incluir o status `pendente` no CHECK na migration A4; upload ao R2 pela API S3 com as chaves do servidor, conferir regra Lion Lab 09 antes de adicionar a biblioteca); gravar em `extracao.*` com `organizacao_id`, registrar `execucoes_raspagem`, subir arquivos ao R2 `extracao-staging`, gravar `*_key`. Piloto: **notícias**; depois as 5 áreas atuais; depois as áreas novas da matriz.
 - [ ] **B4.** Rota de API de acesso a arquivos (URL pré-assinada curta, sessão + tenant) e upload pelo servidor (Lion Lab 01).
 - [ ] **B5.** Teste de bloqueio: raspar uma página do site de Aracati a partir da Cloudflare (WAF/anti-bot) antes de investir nos crawlers.
 
@@ -180,7 +187,7 @@ Regras do projeto (resumo): Lion Lab (`.claude/rules/lion-lab/`): sem Service Ro
 ### Bloco D — Qualidade e publicação
 - [ ] **D1.** Testes (Vitest + Playwright) do fluxo crítico (regra Lion Lab 10) e CI.
 - [ ] **D2.** Zod nas rotas de API; tipos gerados do Supabase.
-- [ ] **D3.** Publicar `portal-admin` na Cloudflare (OpenNext) e Workflows de raspagem (confirmar plano **Workers Paid**).
+- [ ] **D3.** Publicar o painel e o worker de raspagem (hoje: VPS/local, pois a conta Cloudflare é Free e não será paga agora; ver D10). Migrar para Cloudflare (OpenNext + Workflows) só com Workers Paid.
 - [ ] **D4.** Segunda raspagem comparativa antes do go-live (detecta o que mudou no site antigo durante o desenvolvimento).
 - [ ] **D5.** Validar: contagem origem x destino, abrir 1 arquivo de cada módulo via URL pré-assinada, rodar advisors do Producao.
 - [ ] **D6.** Limpeza: docs velhos (`PLAN.md`, `MASTER_CONTEXT.md`, `CHECKLIST_NOVO.md`), scripts `debug-*`.
@@ -205,6 +212,7 @@ Regras do projeto (resumo): Lion Lab (`.claude/rules/lion-lab/`): sem Service Ro
 - Padronizar variáveis de R2 sem prefixo, em maiúsculas (`R2_ACCOUNT_ID` etc.), ao ligar no código.
 - Relatório de diferenças (site x PortalGov) exportável (CSV) para o responsável revisar.
 - Raspagem educada (limite de requisições, `User-Agent` identificado) para não sobrecarregar o site da prefeitura.
+- **Segurança (adiada a pedido do responsável em 2026-11-11):** o repositório GitHub é **PÚBLICO**; 13 arquivos rastreados (`scripts/*.js`) têm uma chave `sb_secret_` escrita no código (de projeto não identificado; não coincide com as chaves atuais do `.env` nem do Producao) e deve ser considerada vazada → fazer rotação em Settings > API Keys dos projetos e remover do código. O `.gitignore` agora ignora `.env.*` e `**/.env.local*` (o `docs/.env.localteste` com chaves reais e senhas de teste não estava ignorado). Chaves do Producao e senhas de teste passaram pelo chat; rotacionar ao fim do desenvolvimento.
 - Futuro: se cada prefeitura quiser importar o próprio site antigo sozinha, adicionar tela de importação no PortalGov por cima da mesma função do banco (a decisão D8 não fecha essa porta). Agendar raspagem = uma linha no `wrangler.jsonc`.
 
 ---
@@ -221,7 +229,10 @@ Regras do projeto (resumo): Lion Lab (`.claude/rules/lion-lab/`): sem Service Ro
 - Decididos: híbrido em camadas (D7); promoção só do superadmin por módulo via função do banco (D8); raspagem manual sem cron (D9); tudo na Cloudflare, VPS só para desenvolvimento (D10).
 - Descobertas: `portalgov.lotes_importacao` já existe; faltam tabelas de preparação para menus de texto; PortalGov local está desatualizado em relação à VPS.
 - Documentação da Cloudflare consultada (Workflows, Cron Triggers, Queues, Browser Run).
-- Encerrada a sessão com: tudo documentado e enviado ao GitHub para abrir chat novo.
+- Responsável adiou segurança; `.env` e `.env.local` apontados para o Producao (chaves do `docs/.env.localteste`); clientes com schema `extracao`; travas contra apagar dados; Exposed schemas habilitado pelo responsável (verificado: 7 tabelas respondem 200).
+- Piloto de notícias concluído (ver B3): migration 003, R2, crawler, testes; 4 notícias reais preparadas em `extracao.noticias`.
+- Ainda NÃO enviado ao GitHub desde o commit `4fccb6e`: edições do ESTADO, `.gitignore`, clientes Supabase, travas, migration 003, crawler, libs, testes e `package.json`/lock.
+- Estado do GitHub (público) com a chave vazada: ver backlog de segurança.
 - **Próxima sessão começa em:** seção 1 → obter código do PortalGov → matriz de lacunas (A1/A2).
 
 ---
